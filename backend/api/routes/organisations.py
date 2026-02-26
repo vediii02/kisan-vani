@@ -26,20 +26,20 @@ router = APIRouter(prefix="/organisations", tags=["organisations"])
 
 class OrganisationCreate(BaseModel):
     name: str = Field(..., min_length=3, max_length=200)
-    domain: Optional[str] = Field(None, max_length=200)
+    email: Optional[str] = Field(None, max_length=200)
     status: str = Field(default="active", pattern="^(active|inactive|suspended)$")
     plan_type: str = Field(default="basic", pattern="^(basic|professional|enterprise)$")
 
 class OrganisationUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=3, max_length=200)
-    domain: Optional[str] = Field(None, max_length=200)
+    email: Optional[str] = Field(None, max_length=200)
     status: Optional[str] = Field(None, pattern="^(active|inactive|suspended)$")
     plan_type: Optional[str] = Field(None, pattern="^(basic|professional|enterprise)$")
 
 class OrganisationResponse(BaseModel):
     id: int
     name: str
-    domain: Optional[str]
+    email: Optional[str]
     status: str
     plan_type: str
     phone_numbers: Optional[List[str]]
@@ -123,7 +123,7 @@ async def get_all_organisations(
         OrganisationResponse(
             id=org.id,
             name=org.name,
-            domain=org.domain,
+            email=org.email,
             status=org.status,
             plan_type=org.plan_type,
             phone_numbers=json.loads(org.phone_numbers) if org.phone_numbers else None,
@@ -149,7 +149,7 @@ async def get_organisation(
     return OrganisationResponse(
         id=org.id,
         name=org.name,
-        domain=org.domain,
+        email=org.email,
         status=org.status,
         plan_type=org.plan_type,
         phone_numbers=json.loads(org.phone_numbers) if org.phone_numbers else None,
@@ -164,18 +164,18 @@ async def create_organisation(
     current_user: dict = Depends(get_current_super_admin)
 ):
     """Create new organisation"""
-    # Check if domain already exists
-    if org_data.domain:
+    # Check if email already exists
+    if org_data.email:
         result = await db.execute(
-            select(Organisation).where(Organisation.domain == org_data.domain)
+            select(Organisation).where(Organisation.email == org_data.email)
         )
         existing = result.scalar_one_or_none()
         if existing:
-            raise HTTPException(status_code=400, detail="Domain already exists")
+            raise HTTPException(status_code=400, detail="Email already exists")
     
     new_org = Organisation(
         name=org_data.name,
-        domain=org_data.domain,
+        email=org_data.email,
         status=org_data.status,
         plan_type=org_data.plan_type
     )
@@ -189,7 +189,7 @@ async def create_organisation(
     return OrganisationResponse(
         id=new_org.id,
         name=new_org.name,
-        domain=new_org.domain,
+        email=new_org.email,
         status=new_org.status,
         plan_type=new_org.plan_type,
         phone_numbers=None,
@@ -211,15 +211,15 @@ async def update_organisation(
     if not org:
         raise HTTPException(status_code=404, detail="Organisation not found")
     
-    # Check domain uniqueness if being changed
-    if org_data.domain and org_data.domain != org.domain:
+    # Check email uniqueness if being changed
+    if org_data.email and org_data.email != org.email:
         result = await db.execute(
-            select(Organisation).where(Organisation.domain == org_data.domain)
+            select(Organisation).where(Organisation.email == org_data.email)
         )
         existing = result.scalar_one_or_none()
         if existing:
-            raise HTTPException(status_code=400, detail="Domain already in use")
-        org.domain = org_data.domain
+            raise HTTPException(status_code=400, detail="Email already in use")
+        org.email = org_data.email
     
     if org_data.name:
         org.name = org_data.name
@@ -236,7 +236,7 @@ async def update_organisation(
     return OrganisationResponse(
         id=org.id,
         name=org.name,
-        domain=org.domain,
+        email=org.email,
         status=org.status,
         plan_type=org.plan_type,
         phone_numbers=json.loads(org.phone_numbers) if org.phone_numbers else None,

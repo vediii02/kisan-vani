@@ -6,40 +6,32 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import Sidebar from '@/components/Sidebar';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
-import Dashboard from '@/pages/Dashboard';
-import CallHistory from '@/pages/CallHistory';
-import KnowledgeBase from '@/pages/KnowledgeBase';
-import Escalations from '@/pages/Escalations';
-import Profile from '@/pages/Profile';
 import SuperAdminDashboard from '@/pages/SuperAdminDashboard';
-import UserManagement from '@/pages/UserManagement';
 import OrganisationManagement from '@/pages/OrganisationManagement';
 import BrandManagement from '@/pages/BrandManagement';
 import ProductManagement from '@/pages/ProductManagement';
-import RasiSeedsJourney from '@/pages/RasiSeedsJourney';
-import OrganisationDashboard from '@/pages/OrganisationDashboard';
-import OrganisationBrands from '@/pages/OrganisationBrands';
-import OrganisationProducts from '@/pages/OrganisationProducts';
-import OrganisationProfile from '@/pages/OrganisationProfile';
-import OrganisationSettings from '@/pages/OrganisationSettings';
-import SuperAdminPlatformDashboard from '@/pages/SuperAdminPlatformDashboard';
+import OrganisationDashboardNew from '@/pages/OrganisationDashboardNew';
 import OrganisationsPlatformManagement from '@/pages/OrganisationsPlatformManagement';
 import OrganisationDetailView from '@/pages/OrganisationDetailView';
 import ProductSafetyControl from '@/pages/ProductSafetyControl';
 import AuditLogsViewer from '@/pages/AuditLogsViewer';
 import KBGovernance from '@/pages/KBGovernance';
-import AdminOrganisations from '@/pages/AdminOrganisations';
 import OrganisationCompanies from '@/pages/OrganisationCompanies';
+import OrganisationBrands from '@/pages/OrganisationBrands';
+import OrganisationProducts from '@/pages/OrganisationProducts';
+import OrganisationProfile from '@/pages/OrganisationProfile';
 import CompanyBrands from '@/pages/CompanyBrands';
 import CompanyProducts from '@/pages/CompanyProducts';
 import CompanyDashboard from '@/pages/CompanyDashboard';
+import CompanyProfile from '@/pages/CompanyProfile';
 import CompanySettings from '@/pages/CompanySettings';
-import AdminSettings from '@/pages/AdminSettings';
-import OrganisationDashboardNew from '@/pages/OrganisationDashboardNew';
 import SuperAdminCompanies from '@/pages/SuperAdminCompanies';
 import SuperAdminCallAnalytics from '@/pages/SuperAdminCallAnalytics';
 import SuperAdminAIManagement from '@/pages/SuperAdminAIManagement';
-import '@/App.css';
+import SuperAdminPlatformDashboard from '@/pages/SuperAdminPlatformDashboard';
+import UserManagement from '@/pages/UserManagement';
+import PendingApprovals from '@/pages/PendingApprovals';
+import OrganisationPendingApprovals from '@/pages/OrganisationPendingApprovals';
 
 function AuthenticatedLayout({ children }) {
   return (
@@ -61,97 +53,22 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 
-            {/* Protected routes */}
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <AuthenticatedLayout>
-                    <Dashboard />
-                  </AuthenticatedLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/calls"
-              element={
-                <ProtectedRoute>
-                  <AuthenticatedLayout>
-                    <CallHistory />
-                  </AuthenticatedLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/knowledge-base"
-              element={
-                <ProtectedRoute>
-                  <AuthenticatedLayout>
-                    <KnowledgeBase />
-                  </AuthenticatedLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/escalations"
-              element={
-                <ProtectedRoute>
-                  <AuthenticatedLayout>
-                    <Escalations />
-                  </AuthenticatedLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <AuthenticatedLayout>
-                    <Profile />
-                  </AuthenticatedLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/farmers"
-              element={
-                <ProtectedRoute>
-                  <AuthenticatedLayout>
-                    <div data-testid="farmers-page" className="text-2xl">
-                      Farmers Page - Coming Soon
-                    </div>
-                  </AuthenticatedLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/cases"
-              element={
-                <ProtectedRoute>
-                  <AuthenticatedLayout>
-                    <div data-testid="cases-page" className="text-2xl">
-                      Cases Page - Coming Soon
-                    </div>
-                  </AuthenticatedLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <AuthenticatedLayout>
-                    <AdminSettings />
-                  </AuthenticatedLayout>
-                </ProtectedRoute>
-              }
-            />
             <Route
               path="/superadmin"
               element={
                 <ProtectedRoute requiredRole="superadmin">
                   <AuthenticatedLayout>
                     <SuperAdminDashboard />
+                  </AuthenticatedLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/superadmin/pending-approvals"
+              element={
+                <ProtectedRoute requiredRole="superadmin">
+                  <AuthenticatedLayout>
+                    <PendingApprovals />
                   </AuthenticatedLayout>
                 </ProtectedRoute>
               }
@@ -226,68 +143,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/rasi-seeds-journey"
-              element={
-                <ProtectedRoute>
-                  <AuthenticatedLayout>
-                    <RasiSeedsJourney />
-                  </AuthenticatedLayout>
-                </ProtectedRoute>
-              }
-            />
 
-            {/* Organisation Admin Routes */}
-            <Route
-              path="/org-admin"
-              element={
-                <ProtectedRoute requiredRole="organisation_admin">
-                  <AuthenticatedLayout>
-                    <OrganisationDashboard />
-                  </AuthenticatedLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/org-admin/brands"
-              element={
-                <ProtectedRoute requiredRole="organisation_admin">
-                  <AuthenticatedLayout>
-                    <OrganisationBrands />
-                  </AuthenticatedLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/org-admin/products"
-              element={
-                <ProtectedRoute requiredRole="organisation_admin">
-                  <AuthenticatedLayout>
-                    <OrganisationProducts />
-                  </AuthenticatedLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/org-admin/profile"
-              element={
-                <ProtectedRoute requiredRole="organisation_admin">
-                  <AuthenticatedLayout>
-                    <OrganisationProfile />
-                  </AuthenticatedLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/org-admin/settings"
-              element={
-                <ProtectedRoute requiredRole="organisation_admin">
-                  <AuthenticatedLayout>
-                    <OrganisationSettings />
-                  </AuthenticatedLayout>
-                </ProtectedRoute>
-              }
-            />
 
             {/* Super Admin Platform Routes */}
             <Route
@@ -301,17 +157,6 @@ function App() {
               }
             />
             
-            {/* Admin Routes - Organisation Management */}
-            <Route
-              path="/admin/organisations"
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AuthenticatedLayout>
-                    <AdminOrganisations />
-                  </AuthenticatedLayout>
-                </ProtectedRoute>
-              }
-            />
 
             {/* Organisation Role Routes */}
             <Route
@@ -320,6 +165,16 @@ function App() {
                 <ProtectedRoute requiredRole="organisation">
                   <AuthenticatedLayout>
                     <OrganisationDashboardNew />
+                  </AuthenticatedLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/organisation/pending-approvals"
+              element={
+                <ProtectedRoute requiredRole="organisation">
+                  <AuthenticatedLayout>
+                    <OrganisationPendingApprovals />
                   </AuthenticatedLayout>
                 </ProtectedRoute>
               }
@@ -398,6 +253,16 @@ function App() {
             />
             <Route
               path="/company/profile"
+              element={
+                <ProtectedRoute requiredRole="company">
+                  <AuthenticatedLayout>
+                    <CompanyProfile />
+                  </AuthenticatedLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/company/settings"
               element={
                 <ProtectedRoute requiredRole="company">
                   <AuthenticatedLayout>

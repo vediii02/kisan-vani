@@ -28,7 +28,7 @@ export default function OrganisationCompanies() {
     gst_number: '',
     registration_number: '',
     status: 'active',
-    max_operators: 5,
+    max_company_users: 5,
     max_products: 100,
     notes: '',
     username: '',
@@ -186,7 +186,7 @@ export default function OrganisationCompanies() {
       gst_number: company.gst_number || '',
       registration_number: company.registration_number || '',
       status: company.status || 'active',
-      max_operators: company.max_operators || 5,
+      max_company_users: company.max_company_users || 5,
       max_products: company.max_products || 100,
       notes: company.notes || ''
     });
@@ -205,7 +205,7 @@ export default function OrganisationCompanies() {
       gst_number: '',
       registration_number: '',
       status: 'active',
-      max_operators: 5,
+      max_company_users: 5,
       max_products: 100,
       notes: '',
       username: '',
@@ -342,7 +342,7 @@ export default function OrganisationCompanies() {
                   <div className="flex gap-4 mt-4 text-sm">
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-muted-foreground" />
-                      <span>Max Operators: <strong>{company.max_operators || 5}</strong></span>
+                      <span>Max Company Users: <strong>{company.max_company_users || 5}</strong></span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Package className="w-4 h-4 text-muted-foreground" />
@@ -474,12 +474,12 @@ export default function OrganisationCompanies() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="max_operators">Max Operators</Label>
+                <Label htmlFor="max_company_users">Max Company Users</Label>
                 <Input
-                  id="max_operators"
+                  id="max_company_users"
                   type="number"
-                  value={formData.max_operators}
-                  onChange={(e) => setFormData({ ...formData, max_operators: parseInt(e.target.value) || 5 })}
+                  value={formData.max_company_users}
+                  onChange={(e) => setFormData({ ...formData, max_company_users: parseInt(e.target.value) || 5 })}
                   placeholder="5"
                 />
               </div>
@@ -662,12 +662,12 @@ export default function OrganisationCompanies() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="edit_max_operators">Max Operators</Label>
+                <Label htmlFor="edit_max_company_users">Max Company Users</Label>
                 <Input
-                  id="edit_max_operators"
+                  id="edit_max_company_users"
                   type="number"
-                  value={formData.max_operators}
-                  onChange={(e) => setFormData({ ...formData, max_operators: parseInt(e.target.value) || 5 })}
+                  value={formData.max_company_users}
+                  onChange={(e) => setFormData({ ...formData, max_company_users: parseInt(e.target.value) || 5 })}
                 />
               </div>
               <div>

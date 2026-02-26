@@ -10,7 +10,7 @@ class Organisation(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
-    domain = Column(String(200), unique=True, nullable=True)
+    email = Column(String(200), unique=True, nullable=True)
     status = Column(String(50), default="active", nullable=False)  # active, inactive, suspended
     plan_type = Column(String(50), default="basic", nullable=False)  # basic, professional, enterprise
     phone_numbers = Column(Text, nullable=True)  # DEPRECATED - Use phone_numbers relationship instead
@@ -20,12 +20,14 @@ class Organisation(Base):
     # Unique constraint ensures one number = one organisation
     primary_phone = Column(String(20), unique=True, nullable=True, index=True)
     
-    # Greeting message for AI - This will be used when farmers call
-    # Example: "Namaste, aap {org_name} Kisan Sahayak AI se baat kar rahe hain"
-    greeting_message = Column(Text, nullable=True)
+    # Secondary phone number
+    secondary_phone = Column(String(20), nullable=True)
     
-    # Language preference for this organisation (comma-separated: hi,en,mr)
-    preferred_languages = Column(String(100), default="hi", nullable=False)
+    # Address fields
+    address = Column(Text, nullable=True)
+    city = Column(String(100), nullable=True)
+    state = Column(String(100), nullable=True)
+    pincode = Column(String(10), nullable=True)
     
     created_at = Column(
         DateTime(timezone=True),
@@ -44,3 +46,6 @@ class Organisation(Base):
         back_populates="organisation",
         cascade="all, delete-orphan"
     )
+    
+    # Relationship to users
+    users = relationship("User", back_populates="organisation")

@@ -4,6 +4,12 @@ Alembic migration for organisation_kb_files table
 from alembic import op
 import sqlalchemy as sa
 
+# revision identifiers, used by Alembic.
+revision = '20260130_add_organisation_kb_files'
+down_revision = '20260130_add_organisation_id_to_kb_entries'
+branch_labels = None
+depends_on = None
+
 def upgrade():
     op.create_table(
         'organisation_kb_files',

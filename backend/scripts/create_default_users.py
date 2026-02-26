@@ -1,5 +1,5 @@
 """
-Create default users for production: superadmin, admin, operator
+Create default users for production: superadmin, admin, company
 """
 
 import sys
@@ -34,11 +34,11 @@ DEFAULT_USERS = [
         "phone": "+919999999998"
     },
     {
-        "username": "operator",
-        "email": "operator@kisanvani.com",
-        "password": "Operator@123",
-        "full_name": "Operator User",
-        "role": "operator",
+        "username": "company",
+        "email": "company@kisanvani.com",
+        "password": "Company@123",
+        "full_name": "Company User",
+        "role": "company",
         "phone": "+919999999997"
     },
     {

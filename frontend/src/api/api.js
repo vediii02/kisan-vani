@@ -62,28 +62,27 @@ export const getMe = () => api.get('/auth/me');
 // Admin endpoints
 // -------------------------------
 export const adminAPI = {
-  getDashboardStats: () => api.get('/admin/stats'),
   getEscalations: (params) => api.get('/admin/escalations', { params }),
 };
 
 // -------------------------------
-// Calls API
+// Calls API (not currently used)
 // -------------------------------
-export const callsAPI = {
-  getCalls: (params) => api.get('/calls', { params }),
-  getCallById: (id) => api.get(`/calls/${id}`),
-  createCall: (data) => api.post('/calls', data),
-};
+// export const callsAPI = {
+//   getCalls: (params) => api.get('/calls', { params }),
+//   getCallById: (id) => api.get(`/calls/${id}`),
+//   createCall: (data) => api.post('/calls', data),
+// };
 
 // -------------------------------
-// Knowledge Base API
+// Knowledge Base API (not currently used)
 // -------------------------------
-export const kbAPI = {
-  getEntries: (params) => api.get('/kb/entries', { params }),
-  createEntry: (data) => api.post('/kb/entries', data),
-  updateEntry: (id, data) => api.put(`/kb/entries/${id}`, data),
-  deleteEntry: (id) => api.delete(`/kb/entries/${id}`),
-};
+// export const kbAPI = {
+//   getEntries: (params) => api.get('/kb/entries', { params }),
+//   createEntry: (data) => api.post('/kb/entries', data),
+//   updateEntry: (id, data) => api.put(`/kb/entries/${id}`, data),
+//   deleteEntry: (id) => api.delete(`/kb/entries/${id}`),
+// };
 
 // -------------------------------
 // Super Admin API
@@ -140,20 +139,20 @@ export const productAPI = {
 };
 
 // -------------------------------
-// Document Ingestion API
+// Document Ingestion API (not currently used)
 // -------------------------------
-export const ingestAPI = {
-  uploadDocument: (companyId, file) => {
-    const formData = new FormData();
-    formData.append('company_id', companyId);
-    formData.append('file', file);
-    return api.post('/ingest/file', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-  },
-  deleteCompanyData: (companyId) => api.delete(`/ingest/company/${companyId}`),
-};
+// export const ingestAPI = {
+//   uploadDocument: (companyId, file) => {
+//     const formData = new FormData();
+//     formData.append('company_id', companyId);
+//     formData.append('file', file);
+//     return api.post('/ingest/file', formData, {
+//       headers: {
+//         'Content-Type': 'multipart/form-data',
+//       },
+//     });
+//   },
+//   deleteCompanyData: (companyId) => api.delete(`/ingest/company/${companyId}`),
+// };
 
 export default api;

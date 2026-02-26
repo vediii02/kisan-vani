@@ -12,7 +12,17 @@ class FlowManager:
     
     async def initialize(self):
         self.stt_provider = provider_registry.get_stt(settings.DEFAULT_STT_PROVIDER)
-        self.tts_provider = provider_registry.get_tts(settings.DEFAULT_TTS_PROVIDER)
+        
+        # Pass API key for TTS providers that need it
+        tts_kwargs = {}
+        if settings.DEFAULT_TTS_PROVIDER == 'sarvam' and settings.SARVAM_API_KEY:
+            tts_kwargs['api_key'] = settings.SARVAM_API_KEY
+        elif settings.DEFAULT_TTS_PROVIDER == 'sarvam-streaming' and settings.SARVAM_API_KEY:
+            tts_kwargs['api_key'] = settings.SARVAM_API_KEY
+        elif settings.DEFAULT_TTS_PROVIDER == 'google' and settings.GOOGLE_TTS_API_KEY:
+            tts_kwargs['api_key'] = settings.GOOGLE_TTS_API_KEY
+            
+        self.tts_provider = provider_registry.get_tts(settings.DEFAULT_TTS_PROVIDER, **tts_kwargs)
         logger.info(f"Initialized voice flow with STT: {settings.DEFAULT_STT_PROVIDER}, TTS: {settings.DEFAULT_TTS_PROVIDER}")
     
     async def process_audio(self, audio_data: bytes) -> str:

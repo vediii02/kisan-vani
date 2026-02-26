@@ -48,7 +48,7 @@ export default function UserManagement() {
     email: '',
     password: '',
     full_name: '',
-    role: 'operator',
+    role: 'company',
   });
 
   const [editUser, setEditUser] = useState({
@@ -88,7 +88,7 @@ export default function UserManagement() {
         email: '',
         password: '',
         full_name: '',
-        role: 'operator',
+        role: 'company',
       });
       fetchUsers();
     } catch (error) {
@@ -245,7 +245,7 @@ export default function UserManagement() {
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="operator">Operator</SelectItem>
+                      <SelectItem value="company">Company Admin</SelectItem>
                       <SelectItem value="supervisor">Supervisor</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
                       <SelectItem value="superadmin">Super Admin</SelectItem>
@@ -353,7 +353,7 @@ export default function UserManagement() {
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="operator">Operator</SelectItem>
+                    <SelectItem value="company">Company Admin</SelectItem>
                     <SelectItem value="supervisor">Supervisor</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="superadmin">Super Admin</SelectItem>

@@ -19,7 +19,7 @@ from services.farmer_query_service import FarmerQueryService
 from services.stt_service import stt_service
 from services.tts_service import TTSService
 from services.dialogue_manager import dialogue_manager, DialogueState
-from services.rag_advisor import generate_answer
+from services.mock_advisory_service import MockAdvisoryService
 from services.product_advisor import generate_final_answer
 
 from core.llm import llm
@@ -28,6 +28,7 @@ from core.call_provider_factory import get_call_provider
 logger = logging.getLogger(__name__)
 router = APIRouter()
 tts_service = TTSService()
+mock_advisory = MockAdvisoryService()
 
 # =====================================================
 # 1️⃣ INCOMING CALL → GREETING
@@ -122,7 +123,8 @@ async def exotel_passthru(request: Request, db: AsyncSession = Depends(get_db)):
     entities = {}
 
     # 🔥 AGRI + PRODUCT AI
-    agri_answer = generate_answer(user_query, llm)
+    agri_response = await mock_advisory.generate_advisory(user_query, call_data.session_id)
+    agri_answer = agri_response.get('advisory_text', 'मुझे खेद है, मैं अभी आपकी सहायता नहीं कर सकता।')
     final_answer = generate_final_answer(
         user_query=user_query,
         agri_answer=agri_answer,

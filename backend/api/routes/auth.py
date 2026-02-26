@@ -16,6 +16,8 @@ from core.auth import (
 )
 from db.session import get_db
 from db.models.user import User
+from db.models.organisation import Organisation
+from db.models.company import Company
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=[" authentication"])
@@ -26,7 +28,10 @@ class UserRegister(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=6)
     full_name: str
-    role: str = "operator"
+    role: str = "company"
+    organisation_name: Optional[str] = None
+    organisation_id: Optional[int] = None
+    company_name: Optional[str] = None
 
 class UserLogin(BaseModel):
     username: str
@@ -44,6 +49,33 @@ class UserProfile(BaseModel):
     role: str
     is_active: bool
     created_at: str
+
+@router.get("/organisations")
+async def get_active_organisations(db: AsyncSession = Depends(get_db)):
+    """Get list of active organisations for company registration"""
+    try:
+        result = await db.execute(
+            select(Organisation)
+            .where(Organisation.status == "active")
+            .order_by(Organisation.name)
+        )
+        organisations = result.scalars().all()
+        
+        org_list = []
+        for org in organisations:
+            org_list.append({
+                "id": org.id,
+                "name": org.name,
+                "domain": org.domain
+            })
+        
+        return {
+            "organisations": org_list,
+            "total": len(org_list)
+        }
+    except Exception as e:
+        logger.error(f"Error fetching organisations: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch organisations")
 
 @router.post("/register", response_model=dict)
 async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
@@ -70,12 +102,82 @@ async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
     )
     
     db.add(new_user)
+    await db.flush()  # Get the user ID without committing
+    
+    # Create organisation if role is organisation
+    if user.role == "organisation" and user.organisation_name:
+        # Generate domain from organisation name
+        domain = user.organisation_name.lower().replace(" ", "").replace(".", "") + ".kisanvani.ai"
+        
+        new_organisation = Organisation(
+            name=user.organisation_name,
+            domain=domain,
+            status="pending",  # Set as pending for approval
+            plan_type="basic",
+            preferred_languages="hi",
+            greeting_message=f"Namaste, aap {user.organisation_name} Kisan Sahayak AI se baat kar rahe hain"
+        )
+        
+        db.add(new_organisation)
+        await db.flush()  # Get the organisation ID
+        
+        # Link user to organisation and set user as inactive until approved
+        new_user.organisation_id = new_organisation.id
+        new_user.is_active = False  # User cannot login until approved
+        
+        logger.info(f"Organisation created with pending status: {user.organisation_name} with user: {user.username}")
+    
+    # Create company if role is company
+    elif user.role == "company" and user.company_name:
+        # For company users, we need an organisation first
+        if user.organisation_id:
+            # Use the selected organisation by ID
+            org_result = await db.execute(select(Organisation).where(Organisation.id == user.organisation_id))
+            organisation = org_result.scalar_one_or_none()
+            
+            if not organisation:
+                raise HTTPException(status_code=400, detail="Selected organisation not found")
+            
+            if organisation.status != "active":
+                raise HTTPException(status_code=400, detail="Selected organisation is not active")
+        elif user.organisation_name:
+            # Fallback to organisation name (for backward compatibility)
+            org_result = await db.execute(select(Organisation).where(Organisation.name == user.organisation_name))
+            organisation = org_result.scalar_one_or_none()
+            
+            if not organisation:
+                raise HTTPException(status_code=400, detail="Organisation not found")
+        else:
+            raise HTTPException(status_code=400, detail="Organisation is required for company registration")
+        
+        # Create company
+        new_company = Company(
+            name=user.company_name,
+            organisation_id=organisation.id,
+            business_type="Agriculture",
+            brand_name=user.company_name,
+            contact_person=user.full_name,
+            email=user.email,
+            status="active"
+        )
+        
+        db.add(new_company)
+        await db.flush()
+        
+        # Link user to company and organisation
+        new_user.company_id = new_company.id
+        new_user.organisation_id = organisation.id
+        new_user.is_active = False  # Company users need organisation approval
+        
+        logger.info(f"Company created: {user.company_name} under organisation: {organisation.name} with user: {user.username}")
+    
     await db.commit()
-    logger.info(f"User registered: {user.username}")
+    logger.info(f"User registered: {user.username} with role: {user.role}")
     
     return {
         "message": "User registered successfully",
-        "username": user.username
+        "username": user.username,
+        "role": user.role
     }
 
 @router.post("/login")
@@ -89,6 +191,37 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Check if user is active
+    if not user.is_active:
+        # For organisation users, check if their organisation is approved
+        if user.role == "organisation" and user.organisation_id:
+            org_result = await db.execute(select(Organisation).where(Organisation.id == user.organisation_id))
+            organisation = org_result.scalar_one_or_none()
+            
+            if organisation and organisation.status == "pending":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Your organisation registration is pending approval. Please wait for super admin approval."
+                )
+            elif organisation and organisation.status == "inactive":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Your organisation account has been deactivated. Please contact support."
+                )
+        
+        # For company users, check if they are approved by organisation
+        elif user.role == "company":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your company user registration is pending approval. Please wait for organisation admin approval."
+            )
+        
+        # For other inactive users
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been deactivated. Please contact support."
         )
     
     # Create access token

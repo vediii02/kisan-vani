@@ -24,16 +24,13 @@ class CallSession(Base):
     duration_seconds = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     
-    # New columns from migration
+    # Columns that exist in database
+    organisation_id = Column(Integer, nullable=True)
     from_phone = Column(String(20), nullable=True)
     to_phone = Column(String(20), nullable=True)
     exotel_call_sid = Column(String(100), nullable=True)
     call_direction = Column(SQLEnum('inbound', 'outbound', name='call_direction_enum'), default='inbound')
     
-    # Advisory fields (added for RAG advisory tracking)
-    advisory_generated = Column(Integer, default=0, nullable=False)
-    advisory_text = Column(Text, nullable=True)
-    raw_advisory = Column(Text, nullable=True)
     # Relationships (commented out to avoid circular import issues)
     # Will be accessed via queries instead
     # states = relationship("CallState", back_populates="call_session", cascade="all, delete-orphan")

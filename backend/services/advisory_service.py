@@ -1,64 +1,44 @@
 from openai import AsyncOpenAI
 from core.config import settings
-from rag.prompt_templates import create_advisory_prompt, ADVISORY_SYSTEM_MESSAGE
-from rag.gemini_retriever import GeminiRAGRetriever
-from rag.confidence import calculate_confidence, should_escalate
 import logging
 
 logger = logging.getLogger(__name__)
 
 class AdvisoryService:
     def __init__(self):
-        self.rag = None
         self.client = AsyncOpenAI(api_key=settings.EMERGENT_LLM_KEY)
     
-    def _get_rag(self):
-        if self.rag is None:
-            self.rag = GeminiRAGRetriever(settings.QDRANT_URL, settings.QDRANT_COLLECTION)
-        return self.rag
-    
     async def generate_advisory(self, farmer_query: str, session_id: str) -> dict:
-        rag = self._get_rag()
-        search_results = rag.search(farmer_query, top_k=3, score_threshold=0.4)
-        
-        confidence = calculate_confidence(search_results)
-        escalate = should_escalate(confidence, settings.CONFIDENCE_THRESHOLD)
-        
-        logger.info(f"RAG search confidence: {confidence}, escalate: {escalate}")
-        
-        if escalate:
-            return {
-                'advisory_text': 'आपकी समस्या को हमारे विशेषज्ञ के पास भेजा जा रहा है। वे जल्द ही आपसे संपर्क करेंगे।',
-                'confidence': confidence,
-                'escalated': True,
-                'kb_entries': [],
-                'reason': 'Low confidence score'
-            }
-        
-        context_docs = [hit['metadata'] for hit in search_results]
-        prompt = create_advisory_prompt(farmer_query, context_docs)
-        
+        """Generate agricultural advisory using LLM without RAG"""
         try:
+            system_message = """You are an agricultural expert assistant for Kisan Vani AI. 
+            Provide helpful, practical advice to farmers about crops, pests, diseases, and farming practices.
+            Keep responses concise and actionable. If you're unsure about something, admit it."""
+            
             response = await self.client.chat.completions.create(
-                model=settings.DEFAULT_LLM_MODEL,
+                model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": ADVISORY_SYSTEM_MESSAGE},
-                    {"role": "user", "content": prompt}
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": farmer_query}
                 ],
-                temperature=0.7,
-                max_tokens=1000
+                max_tokens=500,
+                temperature=0.7
             )
-            advisory_text = response.choices[0].message.content
+            
+            answer = response.choices[0].message.content
+            
+            return {
+                "answer": answer,
+                "confidence": 0.8,
+                "sources": [],
+                "escalate": False
+            }
+            
         except Exception as e:
-            logger.error(f"Error calling LLM: {e}")
-            advisory_text = "क्षमा करें, अभी हम आपकी मदद नहीं कर पा रहे हैं। कृपया बाद में फिर से प्रयास करें।"
-        
-        return {
-            'advisory_text': advisory_text,
-            'confidence': confidence,
-            'escalated': False,
-            'kb_entries': [hit['id'] for hit in search_results],
-            'reason': None
-        }
-
-advisory_service = AdvisoryService()
+            logger.error(f"Error generating advisory: {str(e)}")
+            return {
+                "answer": "मुझे खेद है, मैं अभी आपकी सहायता नहीं कर सकता। कृपया बाद में फिर से प्रयास करें।",
+                "confidence": 0.0,
+                "sources": [],
+                "escalate": True
+            }

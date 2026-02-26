@@ -25,7 +25,27 @@ export default function Login() {
 
     if (result.success) {
       toast.success('Welcome back!');
-      navigate('/dashboard');
+      
+      // Debug: Log the user role
+      console.log('User role:', result.user?.role);
+      console.log('User data:', result.user);
+      
+      // Redirect based on user role
+      switch (result.user?.role) {
+        case 'company':
+          navigate('/company/dashboard');
+          break;
+        case 'organisation':
+          navigate('/organisation/dashboard');
+          break;
+        case 'admin':
+        case 'superadmin':
+          navigate('/superadmin');
+          break;
+        default:
+          console.log('No specific role found, redirecting to superadmin dashboard');
+          navigate('/superadmin');
+      }
     } else {
       toast.error(result.error || 'Login failed');
     }

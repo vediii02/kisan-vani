@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -8,19 +8,45 @@ import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Leaf } from 'lucide-react';
 import { toast } from 'sonner';
+import api from '@/api/api';
 
 export default function Register() {
   const navigate = useNavigate();
   const { register } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [organisations, setOrganisations] = useState([]);
+  const [loadingOrgs, setLoadingOrgs] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
     password: '',
     confirmPassword: '',
     full_name: '',
-    role: 'operator',
+    role: 'company',
+    organisation_name: '',
+    organisation_id: '',
+    company_name: '',
   });
+
+  // Fetch active organisations when component mounts
+  useEffect(() => {
+    if (formData.role === 'company') {
+      fetchOrganisations();
+    }
+  }, [formData.role]);
+
+  const fetchOrganisations = async () => {
+    try {
+      setLoadingOrgs(true);
+      const response = await api.get('/auth/organisations');
+      setOrganisations(response.data.organisations || []);
+    } catch (error) {
+      console.error('Error fetching organisations:', error);
+      toast.error('Failed to load organisations');
+    } finally {
+      setLoadingOrgs(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,6 +59,23 @@ export default function Register() {
     if (formData.password.length < 6) {
       toast.error('Password must be at least 6 characters');
       return;
+    }
+
+    // Validation for conditional fields
+    if (formData.role === 'organisation' && !formData.organisation_name) {
+      toast.error('Organisation name is required');
+      return;
+    }
+
+    if (formData.role === 'company') {
+      if (!formData.organisation_id) {
+        toast.error('Please select an organisation');
+        return;
+      }
+      if (!formData.company_name) {
+        toast.error('Company name is required');
+        return;
+      }
     }
 
     setLoading(true);
@@ -117,13 +160,70 @@ export default function Register() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin (Full Platform Access)</SelectItem>
-                  <SelectItem value="organisation">Organisation (Manage Companies)</SelectItem>
-                  <SelectItem value="company">Company (Manage Brands & Products)</SelectItem>
-                  <SelectItem value="operator">Operator (Basic Access)</SelectItem>
+                  <SelectItem value="admin">SuperAdmin</SelectItem>
+                  <SelectItem value="organisation">Organisation Admin</SelectItem>
+                  <SelectItem value="company">Company Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Organisation Name Field - Show only when role is organisation */}
+            {formData.role === 'organisation' && (
+              <div>
+                <Label htmlFor="organisation_name">Organisation Name</Label>
+                <Input
+                  id="organisation_name"
+                  data-testid="register-organisation-name-input"
+                  type="text"
+                  value={formData.organisation_name}
+                  onChange={(e) => setFormData({ ...formData, organisation_name: e.target.value })}
+                  required={formData.role === 'organisation'}
+                  placeholder="Enter organisation name"
+                  className="mt-1"
+                />
+              </div>
+            )}
+
+            {/* Organisation Dropdown Field - Show only when role is company */}
+            {formData.role === 'company' && (
+              <div>
+                <Label htmlFor="organisation_id">Select Organisation</Label>
+                <Select 
+                  value={formData.organisation_id} 
+                  onValueChange={(value) => setFormData({ ...formData, organisation_id: value })}
+                  disabled={loadingOrgs}
+                  className="mt-1"
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={loadingOrgs ? "Loading organisations..." : "Select an organisation"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {organisations.map((org) => (
+                      <SelectItem key={org.id} value={org.id.toString()}>
+                        {org.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Company Name Field - Show only when role is company */}
+            {formData.role === 'company' && (
+              <div>
+                <Label htmlFor="company_name">Company Name</Label>
+                <Input
+                  id="company_name"
+                  data-testid="register-company-name-input"
+                  type="text"
+                  value={formData.company_name}
+                  onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                  required={formData.role === 'company'}
+                  placeholder="Enter company name"
+                  className="mt-1"
+                />
+              </div>
+            )}
 
             <div>
               <Label htmlFor="password">Password</Label>

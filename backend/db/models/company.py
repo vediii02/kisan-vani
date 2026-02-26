@@ -26,17 +26,19 @@ class Company(Base):
     # Contact Information
     contact_person = Column(String(200), nullable=True)
     phone = Column(String(20), nullable=True)
+    secondary_phone = Column(String(20), nullable=True)
     email = Column(String(200), nullable=True)
     address = Column(Text, nullable=True)
+    city = Column(String(100), nullable=True)
+    state = Column(String(100), nullable=True)
+    pincode = Column(String(10), nullable=True)
     
     # Business Details
     gst_number = Column(String(50), nullable=True)
     registration_number = Column(String(100), nullable=True)
     
-    # Status & Limits
+    # Status
     status = Column(String(50), default="active")  # active, inactive, suspended
-    max_operators = Column(Integer, default=5)  # Max operators allowed for this company
-    max_products = Column(Integer, default=100)  # Max products allowed
     
     # Notes
     notes = Column(Text, nullable=True)
@@ -56,3 +58,6 @@ class Company(Base):
     # One company belongs to one organisation
     # One company has many operators (users with company_id)
     # One company has many products
+    
+    # Relationship to users
+    users = relationship("User", back_populates="company")

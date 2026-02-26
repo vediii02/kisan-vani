@@ -50,6 +50,22 @@ class ProviderRegistry:
             logger.info("✅ Google TTS Provider registered!")
         except ImportError as e:
             logger.warning(f"⚠️ Google TTS not available: {e}")
+        
+        # Register Sarvam TTS
+        try:
+            from voice.providers.sarvam_tts import SarvamTTSProvider
+            self.register_tts('sarvam', SarvamTTSProvider)
+            logger.info("✅ Sarvam TTS Provider registered!")
+        except ImportError as e:
+            logger.warning(f"⚠️ Sarvam TTS not available: {e}")
+        
+        # Register Sarvam Streaming TTS
+        try:
+            from voice.providers.sarvam_tts_streaming import SarvamStreamingTTSProvider
+            self.register_tts('sarvam-streaming', SarvamStreamingTTSProvider)
+            logger.info("✅ Sarvam Streaming TTS Provider registered!")
+        except ImportError as e:
+            logger.warning(f"⚠️ Sarvam Streaming TTS not available: {e}")
     
     def register_stt(self, name: str, provider_class: Type[BaseSTTProvider]):
         self._stt_providers[name] = provider_class

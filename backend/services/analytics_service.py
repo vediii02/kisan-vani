@@ -83,7 +83,7 @@ class AnalyticsService:
             
             # Total farmers
             total_farmers = await db.scalar(
-                select(func.count(distinct(Farmer.id))).where(Farmer.is_active == True)
+                select(func.count(distinct(Farmer.id))).where(Farmer.status == 'active')
             )
             
             # Active farmers (called in period)
@@ -280,7 +280,7 @@ class AnalyticsService:
                 func.count(Farmer.id).label('count')
             ).where(
                 and_(
-                    Farmer.is_active == True,
+                    Farmer.status == 'active',
                     Farmer.district.isnot(None)
                 )
             ).group_by(Farmer.district).order_by(desc('count')).limit(10)
@@ -293,14 +293,14 @@ class AnalyticsService:
             
             # Crop distribution
             crop_dist_stmt = select(
-                Farmer.primary_crop,
+                Farmer.crop_type,
                 func.count(Farmer.id).label('count')
             ).where(
                 and_(
-                    Farmer.is_active == True,
-                    Farmer.primary_crop.isnot(None)
+                    Farmer.status == 'active',
+                    Farmer.crop_type.isnot(None)
                 )
-            ).group_by(Farmer.primary_crop).order_by(desc('count')).limit(10)
+            ).group_by(Farmer.crop_type).order_by(desc('count')).limit(10)
             
             crop_dist_result = await db.execute(crop_dist_stmt)
             crop_distribution = [
@@ -310,9 +310,9 @@ class AnalyticsService:
             
             # Language distribution
             lang_dist_stmt = select(
-                Farmer.preferred_language,
+                Farmer.language,
                 func.count(Farmer.id).label('count')
-            ).where(Farmer.is_active == True).group_by(Farmer.preferred_language)
+            ).where(Farmer.status == 'active').group_by(Farmer.language)
             
             lang_dist_result = await db.execute(lang_dist_stmt)
             language_distribution = [

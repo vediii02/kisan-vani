@@ -33,6 +33,10 @@ class Settings:
     DEFAULT_STT_PROVIDER: str = os.getenv('DEFAULT_STT_PROVIDER', 'mock')
     DEFAULT_TTS_PROVIDER: str = os.getenv('DEFAULT_TTS_PROVIDER', 'mock')
     
+    # API Keys
+    SARVAM_API_KEY: str = os.getenv('SARVAM_API_KEY', '')
+    GOOGLE_TTS_API_KEY: str = os.getenv('GOOGLE_TTS_API_KEY', '')
+    
     # CORS
     CORS_ORIGINS: str = os.getenv('CORS_ORIGINS', '*')
     

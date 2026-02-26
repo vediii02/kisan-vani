@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Phone, Users, FileText, AlertTriangle, Database, Settings, LogOut, User, Shield, UserCog, Building2, Package, Tag, BarChart3, Brain, Globe } from 'lucide-react';
+import { LayoutDashboard, Phone, Users, FileText, AlertTriangle, Database, Settings, LogOut, User, Shield, UserCog, Building2, Package, Tag, BarChart3, Brain, Globe, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -15,10 +15,10 @@ export default function Sidebar() {
     navigate('/login');
   };
 
-  // Only show generic dashboard for operator/supervisor (not admin/superadmin)
+  // Only show generic dashboard for supervisor (not admin/superadmin/company)
   const menuItems = [
-    ...(user?.role === 'operator' || user?.role === 'supervisor' ? [
-      { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', testid: 'nav-dashboard' },
+    ...(user?.role === 'supervisor' ? [
+      { path: '/superadmin', icon: LayoutDashboard, label: 'Dashboard', testid: 'nav-dashboard' },
     ] : []),
     { path: '/calls', icon: Phone, label: 'Call History', testid: 'nav-calls' },
     { path: '/farmers', icon: Users, label: 'Farmers', testid: 'nav-farmers' },
@@ -30,8 +30,9 @@ export default function Sidebar() {
   ];
 
   const adminItems = [
-    { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', testid: 'nav-admin-main-dashboard' },
+    // { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', testid: 'nav-admin-main-dashboard' },
     { path: '/superadmin', icon: Shield, label: 'Admin Dashboard', testid: 'nav-admin-dashboard' },
+    { path: '/superadmin/pending-approvals', icon: Clock, label: 'Pending Approvals', testid: 'nav-admin-pending' },
     // { path: '/superadmin/users', icon: UserCog, label: 'User Management', testid: 'nav-admin-users' },
     { path: '/admin/organisations', icon: Building2, label: 'Organisations', testid: 'nav-admin-orgs' },
     { path: '/superadmin/companies', icon: Building2, label: 'Companies', testid: 'nav-admin-companies' },
@@ -48,17 +49,19 @@ export default function Sidebar() {
 
   const organisationItems = [
     { path: '/organisation/dashboard', icon: LayoutDashboard, label: 'Dashboard', testid: 'nav-org-dashboard' },
+    { path: '/organisation/pending-approvals', icon: Clock, label: 'Pending Approvals', testid: 'nav-org-pending' },
     { path: '/organisation/companies', icon: Building2, label: 'Companies', testid: 'nav-org-companies' },
     { path: '/organisation/brands', icon: Tag, label: 'Brands', testid: 'nav-org-brands' },
     { path: '/organisation/products', icon: Package, label: 'Products', testid: 'nav-org-products' },
-    { path: '/org-admin/settings', icon: Settings, label: 'Settings', testid: 'nav-org-settings' },
+    { path: '/organisation/profile', icon: Settings, label: 'Settings', testid: 'nav-org-settings' },
   ];
 
   const companyItems = [
     { path: '/company/dashboard', icon: LayoutDashboard, label: 'Dashboard', testid: 'nav-company-dashboard' },
     { path: '/company/brands', icon: Tag, label: 'My Brands', testid: 'nav-company-brands' },
     { path: '/company/products', icon: Package, label: 'My Products', testid: 'nav-company-products' },
-    { path: '/company/profile', icon: Settings, label: 'Settings', testid: 'nav-company-settings' },
+    { path: '/company/profile', icon: User, label: 'Profile', testid: 'nav-company-profile' },
+    { path: '/company/settings', icon: Settings, label: 'Settings', testid: 'nav-company-settings' },
   ];
 
   return (
@@ -69,7 +72,7 @@ export default function Sidebar() {
       </div>
       
       <nav className="px-3 mt-4 flex-1 overflow-y-auto">
-        {(user?.role === 'operator' || user?.role === 'supervisor') && menuItems.map((item) => {
+        {user?.role === 'supervisor' && menuItems.map((item) => {
           const Icon = item.icon;
           return (
             <NavLink
@@ -145,9 +148,6 @@ export default function Sidebar() {
 
         {user?.role === 'company' && (
           <>
-            <div className="my-4 px-4">
-              <div className="h-px bg-primary-foreground/20"></div>
-            </div>
             <div className="mb-2 px-4 text-xs opacity-70 font-medium uppercase tracking-wider">
               Company Management
             </div>
