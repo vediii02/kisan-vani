@@ -34,17 +34,18 @@ export default function Sidebar() {
     { path: '/superadmin', icon: Shield, label: 'Admin Dashboard', testid: 'nav-admin-dashboard' },
     { path: '/superadmin/pending-approvals', icon: Clock, label: 'Pending Approvals', testid: 'nav-admin-pending' },
     // { path: '/superadmin/users', icon: UserCog, label: 'User Management', testid: 'nav-admin-users' },
-    { path: '/admin/organisations', icon: Building2, label: 'Organisations', testid: 'nav-admin-orgs' },
+    { path: '/superadmin/organisations-platform', icon: Building2, label: 'Organisation', testid: 'nav-admin-org-platform' },
     { path: '/superadmin/companies', icon: Building2, label: 'Companies', testid: 'nav-admin-companies' },
     { path: '/superadmin/brands', icon: Tag, label: 'Brands', testid: 'nav-admin-brands' },
     { path: '/superadmin/products', icon: Package, label: 'Products', testid: 'nav-admin-products' },
     { path: '/superadmin/platform', icon: Globe, label: 'Platform Dashboard', testid: 'nav-admin-platform' },
     { path: '/superadmin/call-analytics', icon: BarChart3, label: 'Call Analytics', testid: 'nav-admin-analytics' },
     { path: '/superadmin/ai-management', icon: Brain, label: 'AI Management', testid: 'nav-admin-ai' },
-    { path: '/superadmin/organisations-platform', icon: Building2, label: 'Org Platform', testid: 'nav-admin-org-platform' },
+
     // { path: '/superadmin/product-safety', icon: AlertTriangle, label: 'Product Safety', testid: 'nav-admin-safety' },
     { path: '/superadmin/audit-logs', icon: FileText, label: 'Audit Logs', testid: 'nav-admin-audit' },
     { path: '/superadmin/kb-governance', icon: Database, label: 'KB Governance', testid: 'nav-admin-kb' },
+    { path: '/superadmin/settings', icon: Settings, label: 'Settings', testid: 'nav-admin-settings' },
   ];
 
   const organisationItems = [
@@ -53,7 +54,8 @@ export default function Sidebar() {
     { path: '/organisation/companies', icon: Building2, label: 'Companies', testid: 'nav-org-companies' },
     { path: '/organisation/brands', icon: Tag, label: 'Brands', testid: 'nav-org-brands' },
     { path: '/organisation/products', icon: Package, label: 'Products', testid: 'nav-org-products' },
-    { path: '/organisation/profile', icon: Settings, label: 'Settings', testid: 'nav-org-settings' },
+    { path: '/organisation/profile', icon: User, label: 'Profile', testid: 'nav-org-profile' },
+    { path: '/organisation/settings', icon: Settings, label: 'Settings', testid: 'nav-org-settings' },
   ];
 
   const companyItems = [
@@ -70,7 +72,7 @@ export default function Sidebar() {
         <h1 className="text-2xl font-bold tracking-tight" data-testid="app-title">Kisan Vani AI</h1>
         <p className="text-sm opacity-80 mt-1">Voice Advisory Platform</p>
       </div>
-      
+
       <nav className="px-3 mt-4 flex-1 overflow-y-auto">
         {user?.role === 'supervisor' && menuItems.map((item) => {
           const Icon = item.icon;
@@ -80,8 +82,7 @@ export default function Sidebar() {
               to={item.path}
               data-testid={item.testid}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-md mb-2 transition-colors ${
-                  isActive ? 'bg-primary-foreground/20 font-medium' : 'hover:bg-primary-foreground/10'
+                `flex items-center gap-3 px-4 py-3 rounded-md mb-2 transition-colors ${isActive ? 'bg-primary-foreground/20 font-medium' : 'hover:bg-primary-foreground/10'
                 }`
               }
             >
@@ -104,8 +105,7 @@ export default function Sidebar() {
                   to={item.path}
                   data-testid={item.testid}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-3 rounded-md mb-2 transition-colors ${
-                      isActive ? 'bg-primary-foreground/20 font-medium' : 'hover:bg-primary-foreground/10'
+                    `flex items-center gap-3 px-4 py-3 rounded-md mb-2 transition-colors ${isActive ? 'bg-primary-foreground/20 font-medium' : 'hover:bg-primary-foreground/10'
                     }`
                   }
                 >
@@ -133,8 +133,7 @@ export default function Sidebar() {
                   to={item.path}
                   data-testid={item.testid}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-3 rounded-md mb-2 transition-colors ${
-                      isActive ? 'bg-primary-foreground/20 font-medium' : 'hover:bg-primary-foreground/10'
+                    `flex items-center gap-3 px-4 py-3 rounded-md mb-2 transition-colors ${isActive ? 'bg-primary-foreground/20 font-medium' : 'hover:bg-primary-foreground/10'
                     }`
                   }
                 >
@@ -159,8 +158,7 @@ export default function Sidebar() {
                   to={item.path}
                   data-testid={item.testid}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-3 rounded-md mb-2 transition-colors ${
-                      isActive ? 'bg-primary-foreground/20 font-medium' : 'hover:bg-primary-foreground/10'
+                    `flex items-center gap-3 px-4 py-3 rounded-md mb-2 transition-colors ${isActive ? 'bg-primary-foreground/20 font-medium' : 'hover:bg-primary-foreground/10'
                     }`
                   }
                 >

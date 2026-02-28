@@ -1,5 +1,5 @@
 // Company Settings Page
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings, User, Lock, Bell, Shield, Building2, Mail, Phone } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,21 +7,40 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/utils';
 import api from '@/api/api';
 
 const CompanySettings = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('security');
   const [loading, setLoading] = useState(false);
+  const [companyProfile, setCompanyProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
 
+  useEffect(() => {
+    fetchCompanyProfile();
+  }, []);
+
+  const fetchCompanyProfile = async () => {
+    try {
+      setProfileLoading(true);
+      const response = await api.get('/company/profile');
+      setCompanyProfile(response.data);
+    } catch (error) {
+      console.error('Error fetching company profile:', error);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
   const handlePasswordChange = async (e) => {
     e.preventDefault();
-    
+
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       toast.error('New passwords do not match');
       return;
@@ -35,14 +54,14 @@ const CompanySettings = () => {
     try {
       setLoading(true);
       await api.post('/auth/change-password', {
-        current_password: passwordData.currentPassword,
+        old_password: passwordData.currentPassword,
         new_password: passwordData.newPassword
       });
-      
+
       toast.success('Password updated successfully');
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to update password');
+      toast.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -50,17 +69,34 @@ const CompanySettings = () => {
 
   const tabs = [
     { id: 'security', label: 'Security', icon: Lock },
-    { id: 'profile', label: 'Profile', icon: User },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'company', label: 'Company Info', icon: Building2 },
+  ];
+
+  const companyInfoFields = [
+    { label: 'Company Name', key: 'name', icon: Building2 },
+    { label: 'Business Type', key: 'business_type', icon: Shield },
+    { label: 'Brand Name', key: 'brand_name', icon: Shield },
+    { label: 'Contact Person', key: 'contact_person', icon: User },
+    { label: 'Phone', key: 'phone', icon: Phone },
+    { label: 'Secondary Phone', key: 'secondary_phone', icon: Phone },
+    { label: 'Email', key: 'email', icon: Mail },
+    { label: 'Address', key: 'address' },
+    { label: 'City', key: 'city' },
+    { label: 'State', key: 'state' },
+    { label: 'Pincode', key: 'pincode' },
+    { label: 'Website', key: 'website_link' },
+    { label: 'GST Number', key: 'gst_number' },
+    { label: 'Registration Number', key: 'registration_number' },
+    { label: 'Description', key: 'description' },
+    { label: 'Notes', key: 'notes' },
   ];
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg">
-          <Settings className="h-8 w-8 text-white" />
+        <div className="p-3 bg-slate-100 rounded-xl border border-slate-200 shadow-sm">
+          <Settings className="h-8 w-8 text-slate-600" />
         </div>
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
@@ -72,8 +108,8 @@ const CompanySettings = () => {
         {/* Settings Navigation */}
         <div className="lg:col-span-1">
           <Card>
-            <CardHeader className="bg-gradient-to-r from-green-500 to-emerald-600 text-white">
-              <CardTitle className="text-lg">Settings Menu</CardTitle>
+            <CardHeader className="bg-slate-50 border-b border-slate-200">
+              <CardTitle className="text-lg text-slate-800">Settings Menu</CardTitle>
             </CardHeader>
             <CardContent className="p-2">
               <nav className="space-y-1">
@@ -83,11 +119,10 @@ const CompanySettings = () => {
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
-                        activeTab === tab.id
-                          ? 'bg-green-50 text-green-600 font-medium'
-                          : 'hover:bg-gray-50 text-gray-700'
-                      }`}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${activeTab === tab.id
+                        ? 'bg-slate-900 text-white shadow-md'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                        }`}
                     >
                       <Icon className="h-5 w-5" />
                       {tab.label}
@@ -119,7 +154,7 @@ const CompanySettings = () => {
                       required
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="newPassword">New Password</Label>
                     <Input
@@ -132,7 +167,7 @@ const CompanySettings = () => {
                     />
                     <p className="text-sm text-gray-500 mt-1">Minimum 8 characters</p>
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="confirmPassword">Confirm New Password</Label>
                     <Input
@@ -143,8 +178,8 @@ const CompanySettings = () => {
                       required
                     />
                   </div>
-                  
-                  <Button type="submit" disabled={loading}>
+
+                  <Button type="submit" disabled={loading} className="bg-slate-900 hover:bg-slate-800 text-white">
                     {loading ? 'Updating...' : 'Update Password'}
                   </Button>
                 </form>
@@ -152,109 +187,195 @@ const CompanySettings = () => {
             </Card>
           )}
 
-          {activeTab === 'profile' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Profile Information</CardTitle>
-                <CardDescription>View and update your profile details</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Username</Label>
-                  <Input value={user?.username || ''} disabled />
-                </div>
-                <div>
-                  <Label>Email</Label>
-                  <Input value={user?.email || ''} disabled />
-                </div>
-                <div>
-                  <Label>Role</Label>
-                  <Input value={user?.role || ''} disabled className="capitalize" />
-                </div>
-                <p className="text-sm text-gray-500">
-                  Contact your organisation administrator to update profile information.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {activeTab === 'notifications' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Notification Preferences</CardTitle>
-                <CardDescription>Manage how you receive notifications</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Email Notifications</p>
-                      <p className="text-sm text-gray-500">Receive updates via email</p>
-                    </div>
-                    <input type="checkbox" className="toggle" defaultChecked />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Product Alerts</p>
-                      <p className="text-sm text-gray-500">Notifications about your products</p>
-                    </div>
-                    <input type="checkbox" className="toggle" defaultChecked />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Brand Updates</p>
-                      <p className="text-sm text-gray-500">Updates about your brands</p>
-                    </div>
-                    <input type="checkbox" className="toggle" defaultChecked />
-                  </div>
-                  <p className="text-sm text-gray-500 mt-4">
-                    Notification settings will be saved automatically.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           {activeTab === 'company' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Company Information</CardTitle>
-                <CardDescription>Your company details and settings</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Company Name</Label>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Building2 className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm">{user?.company_name || 'Not Available'}</span>
+            <div className="space-y-6">
+              {profileLoading ? (
+                <Card>
+                  <CardContent className="flex items-center justify-center py-16">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-slate-900"></div>
+                    <span className="ml-4 text-slate-500 text-lg">Loading company info...</span>
+                  </CardContent>
+                </Card>
+              ) : companyProfile ? (
+                <>
+                  {/* Company Name Hero */}
+                  <Card className="overflow-hidden border-slate-200">
+                    <div className="bg-slate-50 px-8 py-8 border-b border-slate-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                            <Building2 className="h-10 w-10 text-slate-600" />
+                          </div>
+                          <div>
+                            <h2 className="text-2xl font-bold text-slate-900">
+                              {companyProfile.name || 'Company Name'}
+                            </h2>
+                            <p className="text-slate-500 text-sm mt-1">Org: {companyProfile.organisation_name || 'N/A'}</p>
+                          </div>
+                        </div>
+                        <span className={`px-4 py-2 text-sm font-bold rounded-full shadow-sm border ${companyProfile.status === 'active'
+                          ? 'bg-green-50 text-green-700 border-green-200'
+                          : 'bg-red-50 text-red-700 border-red-200'
+                          }`}>
+                          ● {(companyProfile.status || 'N/A').toUpperCase()}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <Label>Status</Label>
-                    <div className="mt-2">
-                      <span className="px-3 py-1 bg-green-100 text-green-800 text-xs rounded-full">
-                        Active
-                      </span>
+                  </Card>
+
+                  {/* Business Details */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 bg-blue-50 rounded-lg">
+                          <Shield className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <CardTitle className="text-lg">Business Details</CardTitle>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="border-l-4 border-blue-400 pl-4">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Organisation</p>
+                          <p className="text-base font-medium text-gray-800 mt-1">{companyProfile.organisation_name || '—'}</p>
+                        </div>
+                        <div className="border-l-4 border-blue-400 pl-4">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Business Type</p>
+                          <p className="text-base font-medium text-gray-800 mt-1">{companyProfile.business_type || '—'}</p>
+                        </div>
+                        <div className="border-l-4 border-blue-400 pl-4">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Brand Name</p>
+                          <p className="text-base font-medium text-gray-800 mt-1">{companyProfile.brand_name || '—'}</p>
+                        </div>
+                        <div className="border-l-4 border-blue-400 pl-4">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Description</p>
+                          <p className="text-base font-medium text-gray-800 mt-1">{companyProfile.description || '—'}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Contact Information */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 bg-purple-50 rounded-lg">
+                          <Phone className="h-5 w-5 text-purple-600" />
+                        </div>
+                        <CardTitle className="text-lg">Contact Information</CardTitle>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="border-l-4 border-purple-400 pl-4">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Contact Person</p>
+                          <p className="text-base font-medium text-gray-800 mt-1">{companyProfile.contact_person || '—'}</p>
+                        </div>
+                        <div className="border-l-4 border-purple-400 pl-4">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Email</p>
+                          <p className="text-base font-medium text-gray-800 mt-1">{companyProfile.email || '—'}</p>
+                        </div>
+                        <div className="border-l-4 border-purple-400 pl-4">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Phone</p>
+                          <p className="text-base font-medium text-gray-800 mt-1">{companyProfile.phone || '—'}</p>
+                        </div>
+                        <div className="border-l-4 border-purple-400 pl-4">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Secondary Phone</p>
+                          <p className="text-base font-medium text-gray-800 mt-1">{companyProfile.secondary_phone || '—'}</p>
+                        </div>
+                        {companyProfile.website_link && (
+                          <div className="border-l-4 border-purple-400 pl-4 md:col-span-2">
+                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Website</p>
+                            <p className="text-base font-medium text-blue-600 mt-1">{companyProfile.website_link}</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Location */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 bg-orange-50 rounded-lg">
+                          <Building2 className="h-5 w-5 text-orange-600" />
+                        </div>
+                        <CardTitle className="text-lg">Location</CardTitle>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="border-l-4 border-orange-400 pl-4 md:col-span-2">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Address</p>
+                          <p className="text-base font-medium text-gray-800 mt-1">{companyProfile.address || '—'}</p>
+                        </div>
+                        <div className="border-l-4 border-orange-400 pl-4">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">City</p>
+                          <p className="text-base font-medium text-gray-800 mt-1">{companyProfile.city || '—'}</p>
+                        </div>
+                        <div className="border-l-4 border-orange-400 pl-4">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">State</p>
+                          <p className="text-base font-medium text-gray-800 mt-1">{companyProfile.state || '—'}</p>
+                        </div>
+                        <div className="border-l-4 border-orange-400 pl-4">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Pincode</p>
+                          <p className="text-base font-medium text-gray-800 mt-1">{companyProfile.pincode || '—'}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Legal & Compliance */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 bg-red-50 rounded-lg">
+                          <Shield className="h-5 w-5 text-red-600" />
+                        </div>
+                        <CardTitle className="text-lg">Legal & Compliance</CardTitle>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="border-l-4 border-red-400 pl-4">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">GST Number</p>
+                          <p className="text-base font-medium text-gray-800 mt-1">{companyProfile.gst_number || '—'}</p>
+                        </div>
+                        <div className="border-l-4 border-red-400 pl-4">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Registration Number</p>
+                          <p className="text-base font-medium text-gray-800 mt-1">{companyProfile.registration_number || '—'}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Notes & Footer */}
+                  {companyProfile.notes && (
+                    <Card>
+                      <CardContent className="pt-6">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Notes</p>
+                        <p className="text-sm text-gray-700 leading-relaxed">{companyProfile.notes}</p>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {companyProfile.created_at && (
+                    <div className="text-center text-sm text-gray-400 py-2">
+                      Account created on {new Date(companyProfile.created_at).toLocaleDateString('en-IN', {
+                        year: 'numeric', month: 'long', day: 'numeric'
+                      })}
                     </div>
-                  </div>
-                </div>
-                
-                <div>
-                  <Label>Organisation</Label>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Shield className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm">{user?.organisation_name || 'Not Available'}</span>
-                  </div>
-                </div>
-                
-                <div className="pt-4 border-t">
-                  <p className="text-sm text-gray-500">
-                    For changes to company information, please contact your organisation administrator.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+                  )}
+                </>
+              ) : (
+                <Card>
+                  <CardContent className="text-center py-16">
+                    <Building2 className="h-16 w-16 text-gray-200 mx-auto mb-4" />
+                    <p className="text-gray-500 text-lg">Company profile not available.</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           )}
         </div>
       </div>

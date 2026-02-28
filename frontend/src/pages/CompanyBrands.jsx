@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tag, Plus, Edit2, Trash2, Search, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/utils';
 import api from '@/api/api';
 
 export default function CompanyBrands() {
@@ -29,15 +30,17 @@ export default function CompanyBrands() {
   const fetchBrands = async () => {
     setLoading(true);
     try {
-      // Company can access organisation's brands
-      const response = await api.get('/org-admin/brands');
+      console.log('Fetching company brands...');
+      const response = await api.get('/company/brands');
+      console.log('Brands response:', response.data);
       setBrands(response.data || []);
     } catch (error) {
       console.error('Error fetching brands:', error);
+      console.error('Error response:', error.response);
       if (error.response?.status === 403) {
         toast.error('Access denied. Please contact your organisation admin.');
       } else {
-        toast.error(error.response?.data?.detail || 'Failed to load brands');
+        toast.error(error.response?.data?.detail || 'Failed to fetch brands');
       }
       setBrands([]);
     } finally {
@@ -53,13 +56,16 @@ export default function CompanyBrands() {
 
     setLoading(true);
     try {
-      await api.post('/org-admin/brands', formData);
+      console.log('Creating brand:', formData);
+      const response = await api.post('/company/brands', formData);
+      console.log('Create response:', response.data);
       toast.success('Brand created successfully');
       setShowCreateModal(false);
       resetForm();
       fetchBrands();
     } catch (error) {
       console.error('Error creating brand:', error);
+      console.error('Error response:', error.response);
       toast.error(error.response?.data?.detail || 'Failed to create brand');
     } finally {
       setLoading(false);
@@ -74,7 +80,9 @@ export default function CompanyBrands() {
 
     setLoading(true);
     try {
-      await api.put(`/org-admin/brands/${selectedBrand.id}`, formData);
+      console.log('Updating brand:', selectedBrand.id, formData);
+      const response = await api.put(`/company/brands/${selectedBrand.id}`, formData);
+      console.log('Update response:', response.data);
       toast.success('Brand updated successfully');
       setShowEditModal(false);
       setSelectedBrand(null);
@@ -82,6 +90,7 @@ export default function CompanyBrands() {
       fetchBrands();
     } catch (error) {
       console.error('Error updating brand:', error);
+      console.error('Error response:', error.response);
       toast.error(error.response?.data?.detail || 'Failed to update brand');
     } finally {
       setLoading(false);
@@ -95,11 +104,14 @@ export default function CompanyBrands() {
 
     setLoading(true);
     try {
-      await api.delete(`/org-admin/brands/${brand.id}`);
+      console.log('Deleting brand:', brand.id);
+      const response = await api.delete(`/company/brands/${brand.id}`);
+      console.log('Delete response:', response.data);
       toast.success('Brand deleted successfully');
       fetchBrands();
     } catch (error) {
       console.error('Error deleting brand:', error);
+      console.error('Error response:', error.response);
       toast.error(error.response?.data?.detail || 'Failed to delete brand');
     } finally {
       setLoading(false);

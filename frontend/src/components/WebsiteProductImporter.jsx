@@ -29,7 +29,7 @@ const WebsiteProductImporter = ({ organisationId, onImportComplete }) => {
 
     try {
       const response = await api.post(
-        `/superadmin/organisations/${organisationId}/import-from-website`,
+        `/superadmin/organisations-platform/${organisationId}/import-from-website`,
         {
           website_url: websiteUrl,
           auto_create_brand: true

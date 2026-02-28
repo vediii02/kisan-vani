@@ -33,12 +33,20 @@ class Company(Base):
     state = Column(String(100), nullable=True)
     pincode = Column(String(10), nullable=True)
     
+    # Additional fields
+    website_link = Column(String(500), nullable=True)
+    description = Column(Text, nullable=True)
+    
     # Business Details
     gst_number = Column(String(50), nullable=True)
     registration_number = Column(String(100), nullable=True)
     
     # Status
     status = Column(String(50), default="active")  # active, inactive, suspended
+    
+    # Limits
+    max_operators = Column(Integer, default=5, nullable=False, server_default="5")
+    max_products = Column(Integer, default=100, nullable=False, server_default="100")
     
     # Notes
     notes = Column(Text, nullable=True)

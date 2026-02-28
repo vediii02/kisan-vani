@@ -14,6 +14,7 @@ import {
   Clock,
   Users
 } from 'lucide-react';
+import { getErrorMessage } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -86,7 +87,7 @@ export default function KBGovernance() {
       setUploadOrgId('');
       fetchKBEntries();
     } catch (e) {
-      toast.error('Upload failed: ' + (e?.response?.data?.detail || 'Unknown error'));
+      toast.error('Upload failed: ' + getErrorMessage(e));
     } finally {
       setUploading(false);
     }

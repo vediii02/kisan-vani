@@ -130,7 +130,12 @@ export default function BrandManagement() {
       
       if (Array.isArray(errorDetail)) {
         // Pydantic validation errors
-        errorMessage = errorDetail.map(err => err.msg || JSON.stringify(err)).join(', ');
+        errorMessage = errorDetail.map(err => {
+          if (typeof err === 'string') return err;
+          if (err.msg) return String(err.msg);
+          if (err.loc && err.msg) return `${Array.isArray(err.loc) ? err.loc.join('.') : String(err.loc)}: ${String(err.msg)}`;
+          return 'Validation error';
+        }).join(', ');
       } else if (typeof errorDetail === 'string') {
         errorMessage = errorDetail;
       }
@@ -150,7 +155,7 @@ export default function BrandManagement() {
       fetchBrands();
     } catch (error) {
       console.error('Error deleting brand:', error);
-      toast.error(error.response?.data?.detail || 'Failed to delete brand');
+      toast.error(getErrorMessage(error));
     }
   };
 

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Building2, Search, Edit, Trash2, Plus, Package, Phone } from 'lucide-react';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/utils';
 import api from '../api/api';
 
 export default function SuperAdminCompanies() {
@@ -64,7 +65,7 @@ export default function SuperAdminCompanies() {
       fetchCompanies();
     } catch (error) {
       console.error('Error saving company:', error);
-      toast.error(error.response?.data?.detail || 'Failed to save company');
+      toast.error(getErrorMessage(error));
     }
   };
 
@@ -77,7 +78,7 @@ export default function SuperAdminCompanies() {
       fetchCompanies();
     } catch (error) {
       console.error('Error deleting company:', error);
-      toast.error(error.response?.data?.detail || 'Failed to delete company');
+      toast.error(getErrorMessage(error));
     }
   };
 

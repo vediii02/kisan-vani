@@ -153,7 +153,12 @@ export default function ProductManagement() {
       
       if (Array.isArray(errorDetail)) {
         // Pydantic validation errors
-        errorMessage = errorDetail.map(err => err.msg || JSON.stringify(err)).join(', ');
+        errorMessage = errorDetail.map(err => {
+          if (typeof err === 'string') return err;
+          if (err.msg) return String(err.msg);
+          if (err.loc && err.msg) return `${Array.isArray(err.loc) ? err.loc.join('.') : String(err.loc)}: ${String(err.msg)}`;
+          return 'Validation error';
+        }).join(', ');
       } else if (typeof errorDetail === 'string') {
         errorMessage = errorDetail;
       }
@@ -173,7 +178,7 @@ export default function ProductManagement() {
       fetchProducts();
     } catch (error) {
       console.error('Error deleting product:', error);
-      toast.error(error.response?.data?.detail || 'Failed to delete product');
+      toast.error(getErrorMessage(error));
     }
   };
 
@@ -229,7 +234,12 @@ export default function ProductManagement() {
       let errorMessage = 'Failed to upload CSV';
       
       if (Array.isArray(errorDetail)) {
-        errorMessage = errorDetail.map(err => err.msg || JSON.stringify(err)).join(', ');
+        errorMessage = errorDetail.map(err => {
+          if (typeof err === 'string') return err;
+          if (err.msg) return String(err.msg);
+          if (err.loc && err.msg) return `${Array.isArray(err.loc) ? err.loc.join('.') : String(err.loc)}: ${String(err.msg)}`;
+          return 'Validation error';
+        }).join(', ');
       } else if (typeof errorDetail === 'string') {
         errorMessage = errorDetail;
       }

@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { User, Edit2, Save, X, Building, Phone, Mail, MapPin, Globe, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+import api from '@/api/api';
 
 export default function CompanyProfile() {
   const { user } = useAuth();
@@ -21,8 +22,12 @@ export default function CompanyProfile() {
     brand_name: '',
     contact_person: '',
     phone: '',
+    alternate_phone: '',
     email: '',
     address: '',
+    city: '',
+    state: '',
+    pincode: '',
     gst_number: '',
     registration_number: '',
     website: '',
@@ -40,41 +45,41 @@ export default function CompanyProfile() {
     try {
       setLoading(true);
       
-      // For now, use user data and placeholder company info
-      // In the future, this should fetch from a company-specific API endpoint
-      setCompanyData({
-        name: user?.full_name || user?.username || 'Company Name',
-        business_type: 'Agriculture',
-        brand_name: user?.full_name || 'Brand Name',
-        contact_person: user?.full_name || 'Contact Person',
-        phone: '+91 98765 43210',
-        email: user?.email || 'company@example.com',
-        address: '123, Market Street, City - 400001',
-        gst_number: '27AAAPL1234C1ZV',
-        registration_number: 'ROC-123456',
-        website: 'www.companywebsite.com',
-        description: 'Leading agricultural company providing quality products and services to farmers.',
-        status: 'active'
-      });
+      console.log('Fetching company profile...');
+      const response = await api.get('/company/profile');
+      console.log('API Response:', response);
+      const profileData = response.data;
+      console.log('Profile Data:', profileData);
       
-      setOriginalData({
-        name: user?.full_name || user?.username || 'Company Name',
-        business_type: 'Agriculture',
-        brand_name: user?.full_name || 'Brand Name',
-        contact_person: user?.full_name || 'Contact Person',
-        phone: '+91 98765 43210',
-        email: user?.email || 'company@example.com',
-        address: '123, Market Street, City - 400001',
-        gst_number: '27AAAPL1234C1ZV',
-        registration_number: 'ROC-123456',
-        website: 'www.companywebsite.com',
-        description: 'Leading agricultural company providing quality products and services to farmers.',
-        status: 'active'
-      });
+      const newCompanyData = {
+        name: profileData.name || '',
+        business_type: profileData.business_type || '',
+        brand_name: profileData.brand_name || '',
+        contact_person: profileData.contact_person || '',
+        phone: profileData.phone || '',
+        alternate_phone: profileData.secondary_phone || '',
+        email: profileData.email || '',
+        address: profileData.address || '',
+        city: profileData.city || '',
+        state: profileData.state || '',
+        pincode: profileData.pincode || '',
+        gst_number: profileData.gst_number || '',
+        registration_number: profileData.registration_number || '',
+        website: profileData.website_link || '',
+        description: profileData.description || '',
+        status: profileData.status || 'active'
+      };
+      
+      console.log('Setting companyData to:', newCompanyData);
+      setCompanyData(newCompanyData);
+      setOriginalData(newCompanyData);
       
     } catch (error) {
       console.error('Error fetching company profile:', error);
-      toast.error('Failed to load company profile');
+      console.error('Error response:', error.response);
+      console.error('Error status:', error.response?.status);
+      console.error('Error data:', error.response?.data);
+      toast.error(error.response?.data?.detail || 'Failed to load company profile');
     } finally {
       setLoading(false);
     }
@@ -85,6 +90,7 @@ export default function CompanyProfile() {
   };
 
   const handleCancel = () => {
+    console.log('Cancel clicked - originalData:', originalData);
     setCompanyData(originalData);
     setEditing(false);
   };
@@ -100,19 +106,75 @@ export default function CompanyProfile() {
     try {
       setSaving(true);
       
-      // TODO: Implement actual API call to update company profile
-      // await api.put('/company/profile', companyData);
+      // Prepare data for API - map frontend fields to backend fields
+      const updateData = {
+        name: companyData.name,
+        business_type: companyData.business_type,
+        brand_name: companyData.brand_name,
+        contact_person: companyData.contact_person,
+        phone: companyData.phone,
+        secondary_phone: companyData.alternate_phone,
+        email: companyData.email,
+        address: companyData.address,
+        city: companyData.city,
+        state: companyData.state,
+        pincode: companyData.pincode,
+        gst_number: companyData.gst_number,
+        registration_number: companyData.registration_number,
+        website_link: companyData.website,
+        description: companyData.description,
+        notes: companyData.notes
+      };
       
-      // For now, just simulate the update
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Call the actual API
+      const response = await api.put('/company/profile', updateData);
       
-      setOriginalData(companyData);
+      // Update local state with response data
+      const updatedProfile = response.data;
+      setCompanyData({
+        name: updatedProfile.name || '',
+        business_type: updatedProfile.business_type || '',
+        brand_name: updatedProfile.brand_name || '',
+        contact_person: updatedProfile.contact_person || '',
+        phone: updatedProfile.phone || '',
+        alternate_phone: updatedProfile.secondary_phone || '',
+        email: updatedProfile.email || '',
+        address: updatedProfile.address || '',
+        city: updatedProfile.city || '',
+        state: updatedProfile.state || '',
+        pincode: updatedProfile.pincode || '',
+        gst_number: updatedProfile.gst_number || '',
+        registration_number: updatedProfile.registration_number || '',
+        website: updatedProfile.website_link || '',
+        description: updatedProfile.description || '',
+        status: updatedProfile.status || 'active'
+      });
+      
+      setOriginalData({
+        name: updatedProfile.name || '',
+        business_type: updatedProfile.business_type || '',
+        brand_name: updatedProfile.brand_name || '',
+        contact_person: updatedProfile.contact_person || '',
+        phone: updatedProfile.phone || '',
+        alternate_phone: updatedProfile.secondary_phone || '',
+        email: updatedProfile.email || '',
+        address: updatedProfile.address || '',
+        city: updatedProfile.city || '',
+        state: updatedProfile.state || '',
+        pincode: updatedProfile.pincode || '',
+        gst_number: updatedProfile.gst_number || '',
+        registration_number: updatedProfile.registration_number || '',
+        website: updatedProfile.website_link || '',
+        description: updatedProfile.description || '',
+        status: updatedProfile.status || 'active'
+      });
+      
       setEditing(false);
       toast.success('Company profile updated successfully!');
       
     } catch (error) {
       console.error('Error updating company profile:', error);
-      toast.error('Failed to update company profile');
+      toast.error(error.response?.data?.detail || 'Failed to update company profile');
     } finally {
       setSaving(false);
     }
@@ -280,6 +342,18 @@ export default function CompanyProfile() {
             </div>
             
             <div>
+              <Label htmlFor="alternate_phone">Alternate Phone Number</Label>
+              <Input
+                id="alternate_phone"
+                value={companyData.alternate_phone}
+                onChange={(e) => handleInputChange('alternate_phone', e.target.value)}
+                disabled={!editing}
+                className="mt-1"
+                placeholder="+91 98765 43211"
+              />
+            </div>
+            
+            <div>
               <Label htmlFor="email">Email Address</Label>
               <Input
                 id="email"
@@ -302,6 +376,45 @@ export default function CompanyProfile() {
                 rows={3}
               />
             </div>
+            
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  value={companyData.city}
+                  onChange={(e) => handleInputChange('city', e.target.value)}
+                  disabled={!editing}
+                  className="mt-1"
+                  placeholder="Mumbai"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="state">State</Label>
+                <Input
+                  id="state"
+                  value={companyData.state}
+                  onChange={(e) => handleInputChange('state', e.target.value)}
+                  disabled={!editing}
+                  className="mt-1"
+                  placeholder="Maharashtra"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="pincode">Pincode</Label>
+                <Input
+                  id="pincode"
+                  value={companyData.pincode}
+                  onChange={(e) => handleInputChange('pincode', e.target.value)}
+                  disabled={!editing}
+                  className="mt-1"
+                  placeholder="400001"
+                  maxLength={6}
+                />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -313,7 +426,7 @@ export default function CompanyProfile() {
               Legal Information
             </CardTitle>
             <CardDescription>
-              Company registration and tax details (Read-only)
+              Company registration and tax details 
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -322,7 +435,7 @@ export default function CompanyProfile() {
               <Input
                 id="gst_number"
                 value={companyData.gst_number}
-                disabled={true}
+                disabled={!editing}
                 className="mt-1 bg-muted"
                 placeholder="27AAAPL1234C1ZV"
               />
@@ -333,7 +446,7 @@ export default function CompanyProfile() {
               <Input
                 id="registration_number"
                 value={companyData.registration_number}
-                disabled={true}
+                disabled={!editing}
                 className="mt-1 bg-muted"
                 placeholder="ROC-123456"
               />

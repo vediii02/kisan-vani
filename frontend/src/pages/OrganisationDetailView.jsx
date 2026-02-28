@@ -70,7 +70,7 @@ const OrganisationDetailView = () => {
     )) return;
 
     try {
-      await api.patch(`/superadmin/organisations/${orgId}/status`, {
+      await api.patch(`/superadmin/organisations-platform/${orgId}/status`, {
         is_active: !organisation.is_active
       });
       setOrganisation({ ...organisation, is_active: !organisation.is_active });

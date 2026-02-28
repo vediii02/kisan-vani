@@ -16,6 +16,7 @@ from api.routes import superadmin_platform, admin_organisations, admin_companies
 from api.routes import pending_approvals  # Pending approvals for super admin
 from api.routes import organisation_pending_approvals  # Pending approvals for organisations
 from api.routes import company_profile  # Company profile
+from api.routes import company_brands  # Company brand management
 from api.routes.organisations import brand_router, product_router
 # from api.routes import exotel_passthru  # Production-ready Exotel Passthru webhook
 # from api.routes import exotel_calling  # NEW: Exotel Live Calling System
@@ -70,6 +71,7 @@ app.include_router(organisation_companies.router, prefix="/api", tags=["Organisa
 app.include_router(brand_router, prefix="/api")
 app.include_router(product_router, prefix="/api")
 app.include_router(company_profile.router, prefix="/api/company", tags=["Company Profile"])
+app.include_router(company_brands.router, prefix="/api/company", tags=["Company Brands"])
 
 # ============================================================================
 # STATIC FILES FOR AUDIO SERVING (REQUIRED FOR EXOTEL <Play> TAG)

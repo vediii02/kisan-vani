@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/utils';
 import { organisationAPI } from '@/api/api';
 
 export default function OrganisationManagement() {
@@ -18,7 +19,7 @@ export default function OrganisationManagement() {
   const [selectedOrg, setSelectedOrg] = useState();
   const [newOrg, setNewOrg] = useState({
     name: '',
-    domain: '',
+    phone_numbers: '',
     status: 'active',
     plan_type: 'basic',
   });
@@ -53,14 +54,14 @@ export default function OrganisationManagement() {
       setDialogOpen(false);
       setNewOrg({
         name: '',
-        domain: '',
+        phone_numbers: '',
         status: 'active',
         plan_type: 'basic',
       });
       fetchOrganisations();
     } catch (error) {
       console.error('Error creating organisation:', error);
-      toast.error(error.response?.data?.detail || 'Failed to create organisation');
+      toast.error(getErrorMessage(error));
     }
   };
 
@@ -74,7 +75,7 @@ export default function OrganisationManagement() {
       fetchOrganisations();
     } catch (error) {
       console.error('Error adding phone:', error);
-      toast.error(error.response?.data?.detail || 'Failed to add phone number');
+      toast.error(getErrorMessage(error));
     }
   };
 
@@ -149,12 +150,12 @@ export default function OrganisationManagement() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="domain">Domain</Label>
+                  <Label htmlFor="phone_numbers">Primary Phone Number</Label>
                   <Input
-                    id="domain"
-                    value={newOrg.domain}
-                    onChange={(e) => setNewOrg({ ...newOrg, domain: e.target.value })}
-                    placeholder="e.g., bayer.kisanvani.ai"
+                    id="phone_numbers"
+                    value={newOrg.phone_numbers}
+                    onChange={(e) => setNewOrg({ ...newOrg, phone_numbers: e.target.value })}
+                    placeholder="e.g., +91 9876543210"
                   />
                 </div>
                 <div>
@@ -207,7 +208,7 @@ export default function OrganisationManagement() {
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground mb-2">
-                  {org.domain || 'No domain assigned'}
+                  {org.phone_numbers || 'No phone number assigned'}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Created: {new Date(org.created_at).toLocaleDateString()}
@@ -227,7 +228,7 @@ export default function OrganisationManagement() {
           </Card>
         ))}
       </div>
-      
+
       {/* Add Phone Dialog */}
       <Dialog open={phoneDialogOpen} onOpenChange={setPhoneDialogOpen}>
         <DialogContent>

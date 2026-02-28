@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios';
+import { getErrorMessage } from '@/lib/utils';
 
 const AuthContext = createContext(null);
 
@@ -17,7 +18,7 @@ const AuthContext = createContext(null);
 //   return process.env.REACT_APP_BACKEND_URL || `http://${hostname}:8001/api`;
 // })();
 
-const API_BASE_URL = 'http://localhost:8001/api';
+const API_BASE_URL = '/api';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -66,19 +67,22 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.detail || 'Login failed',
+        error: getErrorMessage(error),
       };
     }
   };
 
   const register = async (userData) => {
     try {
-      await axios.post(`${API_BASE_URL}/auth/register`, userData);
+      console.log('Sending registration data:', userData);
+      const response = await axios.post(`${API_BASE_URL}/auth/register`, userData);
+      console.log('Registration response:', response.data);
       return { success: true };
     } catch (error) {
+      console.error('Registration error:', error.response?.data);
       return {
         success: false,
-        error: error.response?.data?.detail || 'Registration failed',
+        error: getErrorMessage(error),
       };
     }
   };

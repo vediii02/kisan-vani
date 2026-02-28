@@ -25,11 +25,11 @@ export default function Login() {
 
     if (result.success) {
       toast.success('Welcome back!');
-      
+
       // Debug: Log the user role
       console.log('User role:', result.user?.role);
       console.log('User data:', result.user);
-      
+
       // Redirect based on user role
       switch (result.user?.role) {
         case 'company':
@@ -71,7 +71,7 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">Username or Email</Label>
               <Input
                 id="username"
                 data-testid="login-username-input"

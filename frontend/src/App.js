@@ -20,6 +20,7 @@ import OrganisationCompanies from '@/pages/OrganisationCompanies';
 import OrganisationBrands from '@/pages/OrganisationBrands';
 import OrganisationProducts from '@/pages/OrganisationProducts';
 import OrganisationProfile from '@/pages/OrganisationProfile';
+import OrganisationSettings from '@/pages/OrganisationSettings';
 import CompanyBrands from '@/pages/CompanyBrands';
 import CompanyProducts from '@/pages/CompanyProducts';
 import CompanyDashboard from '@/pages/CompanyDashboard';
@@ -32,6 +33,7 @@ import SuperAdminPlatformDashboard from '@/pages/SuperAdminPlatformDashboard';
 import UserManagement from '@/pages/UserManagement';
 import PendingApprovals from '@/pages/PendingApprovals';
 import OrganisationPendingApprovals from '@/pages/OrganisationPendingApprovals';
+import SuperAdminSettings from '@/pages/SuperAdminSettings';
 
 function AuthenticatedLayout({ children }) {
   return (
@@ -156,7 +158,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            
+
 
             {/* Organisation Role Routes */}
             <Route
@@ -219,7 +221,27 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            
+            <Route
+              path="/organisation/settings"
+              element={
+                <ProtectedRoute requiredRole="organisation">
+                  <AuthenticatedLayout>
+                    <OrganisationSettings />
+                  </AuthenticatedLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/organisations"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AuthenticatedLayout>
+                    <OrganisationManagement />
+                  </AuthenticatedLayout>
+                </ProtectedRoute>
+              }
+            />
+
             {/* Company Role Routes */}
             <Route
               path="/company/dashboard"
@@ -271,7 +293,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            
+
             {/* Super Admin Platform Routes */}
             <Route
               path="/superadmin/organisations-platform"
@@ -318,6 +340,16 @@ function App() {
                 <ProtectedRoute requiredRole="superadmin">
                   <AuthenticatedLayout>
                     <KBGovernance />
+                  </AuthenticatedLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/superadmin/settings"
+              element={
+                <ProtectedRoute requiredRole="superadmin">
+                  <AuthenticatedLayout>
+                    <SuperAdminSettings />
                   </AuthenticatedLayout>
                 </ProtectedRoute>
               }

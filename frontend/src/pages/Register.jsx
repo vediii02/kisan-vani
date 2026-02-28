@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Leaf } from 'lucide-react';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/utils';
 import api from '@/api/api';
 
 export default function Register() {
@@ -22,7 +23,7 @@ export default function Register() {
     password: '',
     confirmPassword: '',
     full_name: '',
-    role: 'company',
+    role: '',
     organisation_name: '',
     organisation_id: '',
     company_name: '',
@@ -62,6 +63,11 @@ export default function Register() {
     }
 
     // Validation for conditional fields
+    if (!formData.role) {
+      toast.error('Please select a role');
+      return;
+    }
+
     if (formData.role === 'organisation' && !formData.organisation_name) {
       toast.error('Organisation name is required');
       return;
@@ -87,7 +93,7 @@ export default function Register() {
       toast.success('Account created successfully! Please sign in.');
       navigate('/login');
     } else {
-      toast.error(result.error || 'Registration failed');
+      toast.error(getErrorMessage(result));
     }
 
     setLoading(false);
@@ -157,7 +163,7 @@ export default function Register() {
               <Label htmlFor="role">Role</Label>
               <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
                 <SelectTrigger className="mt-1" data-testid="register-role-select">
-                  <SelectValue />
+                  <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">SuperAdmin</SelectItem>

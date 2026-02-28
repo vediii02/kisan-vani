@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, Response
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 from db.session import get_db
 from db.models.organisation import Organisation
 from db.models.organisation_phone import OrganisationPhoneNumber
 from db.models.brand import Brand
 from db.models.product import Product
-from core.auth import get_current_super_admin
+from core.auth import get_current_super_admin, get_current_user
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import logging
@@ -29,12 +30,28 @@ class OrganisationCreate(BaseModel):
     email: Optional[str] = Field(None, max_length=200)
     status: str = Field(default="active", pattern="^(active|inactive|suspended)$")
     plan_type: str = Field(default="basic", pattern="^(basic|professional|enterprise)$")
+    phone_numbers: Optional[str] = Field(None, max_length=20)
+    secondary_phone: Optional[str] = Field(None, max_length=20)
+    address: Optional[str] = Field(None, max_length=1000)
+    city: Optional[str] = Field(None, max_length=100)
+    state: Optional[str] = Field(None, max_length=100)
+    pincode: Optional[str] = Field(None, max_length=10)
+    website_link: Optional[str] = Field(None, max_length=500)
+    description: Optional[str] = Field(None, max_length=2000)
 
 class OrganisationUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=3, max_length=200)
     email: Optional[str] = Field(None, max_length=200)
     status: Optional[str] = Field(None, pattern="^(active|inactive|suspended)$")
     plan_type: Optional[str] = Field(None, pattern="^(basic|professional|enterprise)$")
+    phone_numbers: Optional[str] = Field(None, max_length=20)
+    secondary_phone: Optional[str] = Field(None, max_length=20)
+    address: Optional[str] = Field(None, max_length=1000)
+    city: Optional[str] = Field(None, max_length=100)
+    state: Optional[str] = Field(None, max_length=100)
+    pincode: Optional[str] = Field(None, max_length=10)
+    website_link: Optional[str] = Field(None, max_length=500)
+    description: Optional[str] = Field(None, max_length=2000)
 
 class OrganisationResponse(BaseModel):
     id: int
@@ -42,7 +59,14 @@ class OrganisationResponse(BaseModel):
     email: Optional[str]
     status: str
     plan_type: str
-    phone_numbers: Optional[List[str]]
+    address: Optional[str]
+    city: Optional[str]
+    state: Optional[str]
+    pincode: Optional[str]
+    website_link: Optional[str]
+    description: Optional[str]
+    phone_numbers: Optional[str]
+    secondary_phone: Optional[str]
     created_at: str
     updated_at: Optional[str]
 
@@ -77,34 +101,147 @@ class BrandResponse(BaseModel):
     created_at: str
 
 class ProductCreate(BaseModel):
-    brand_id: Optional[int] = None
     name: str = Field(..., min_length=2, max_length=200)
-    category: str
+    brand_id: int
+    category: Optional[str] = "other"
     sub_category: Optional[str] = None
     description: Optional[str] = None
-    target_crops: Optional[List[str]] = None
-    target_problems: Optional[List[str]] = None
+    target_crops: Optional[str] = None
+    target_problems: Optional[str] = None
     dosage: Optional[str] = None
     usage_instructions: Optional[str] = None
     safety_precautions: Optional[str] = None
     price_range: Optional[str] = None
+    is_active: bool = True
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=2, max_length=200)
+    brand_id: Optional[int] = None
+    category: Optional[str] = None
+    sub_category: Optional[str] = None
+    description: Optional[str] = None
+    target_crops: Optional[str] = None
+    target_problems: Optional[str] = None
+    dosage: Optional[str] = None
+    usage_instructions: Optional[str] = None
+    safety_precautions: Optional[str] = None
+    price_range: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class ProductResponse(BaseModel):
     id: int
-    organisation_id: int
-    brand_id: Optional[int]
     name: str
-    category: str
+    organisation_id: int
+    company_id: Optional[int]
+    brand_id: Optional[int]
+    brand_name: Optional[str] = None
+    company_name: Optional[str] = None
+    category: Optional[str]
     sub_category: Optional[str]
     description: Optional[str]
-    target_crops: Optional[List[str]]
-    target_problems: Optional[List[str]]
+    target_crops: Optional[str]
+    target_problems: Optional[str]
     dosage: Optional[str]
     usage_instructions: Optional[str]
     safety_precautions: Optional[str]
     price_range: Optional[str]
     is_active: bool
-    created_at: str
+    created_at: Optional[str]
+
+# ==================== Organisation Profile ====================
+
+@router.get("/profile", response_model=OrganisationResponse)
+async def get_my_organisation_profile(
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Get current logged-in organisation's profile details"""
+    org_id = current_user.get("organisation_id")
+    if not org_id:
+        raise HTTPException(status_code=400, detail="User not associated with any organisation")
+    
+    result = await db.execute(select(Organisation).where(Organisation.id == org_id))
+    org = result.scalar_one_or_none()
+    
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation not found")
+    
+    return OrganisationResponse(
+        id=org.id,
+        name=org.name,
+        email=org.email,
+        status=org.status,
+        plan_type=org.plan_type,
+        phone_numbers=org.phone_numbers,
+        secondary_phone=org.secondary_phone,
+        address=org.address,
+        city=org.city,
+        state=org.state,
+        pincode=org.pincode,
+        website_link=org.website_link,
+        description=org.description,
+        created_at=org.created_at.isoformat() if org.created_at else "",
+        updated_at=org.updated_at.isoformat() if org.updated_at else None
+    )
+
+@router.put("/profile", response_model=OrganisationResponse)
+async def update_my_organisation_profile(
+    org_data: OrganisationUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Update current logged-in organisation's profile"""
+    org_id = current_user.get("organisation_id")
+    if not org_id:
+        raise HTTPException(status_code=400, detail="User not associated with any organisation")
+    
+    result = await db.execute(select(Organisation).where(Organisation.id == org_id))
+    org = result.scalar_one_or_none()
+    
+    if not org:
+        raise HTTPException(status_code=404, detail="Organisation not found")
+    
+    # Update fields
+    update_data = org_data.model_dump(exclude_unset=True)
+    
+    # Check email uniqueness if being changed
+    if "email" in update_data and update_data["email"] != org.email:
+        email_check = await db.execute(
+            select(Organisation).where(Organisation.email == update_data["email"])
+        )
+        if email_check.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Email already in use")
+    
+    # Phone numbers uniqueness check omitted for now
+
+    for field, value in update_data.items():
+        setattr(org, field, value)
+    
+    # Synchronize phone_numbers list with individual fields deleted - consolidation complete
+    
+    org.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(org)
+    
+    logger.info(f"Organisation Admin {current_user['username']} updated profile: {org.name}")
+    
+    return OrganisationResponse(
+        id=org.id,
+        name=org.name,
+        email=org.email,
+        status=org.status,
+        plan_type=org.plan_type,
+        phone_numbers=org.phone_numbers,
+        secondary_phone=org.secondary_phone,
+        address=org.address,
+        city=org.city,
+        state=org.state,
+        pincode=org.pincode,
+        website_link=org.website_link,
+        description=org.description,
+        created_at=org.created_at.isoformat() if org.created_at else "",
+        updated_at=org.updated_at.isoformat() if org.updated_at else None
+    )
 
 # ==================== Organisation CRUD ====================
 
@@ -126,7 +263,14 @@ async def get_all_organisations(
             email=org.email,
             status=org.status,
             plan_type=org.plan_type,
-            phone_numbers=json.loads(org.phone_numbers) if org.phone_numbers else None,
+            phone_numbers=org.phone_numbers,
+            secondary_phone=org.secondary_phone,
+            address=org.address,
+            city=org.city,
+            state=org.state,
+            pincode=org.pincode,
+            website_link=org.website_link,
+            description=org.description,
             created_at=org.created_at.isoformat() if org.created_at else "",
             updated_at=org.updated_at.isoformat() if org.updated_at else None
         )
@@ -152,7 +296,14 @@ async def get_organisation(
         email=org.email,
         status=org.status,
         plan_type=org.plan_type,
-        phone_numbers=json.loads(org.phone_numbers) if org.phone_numbers else None,
+        phone_numbers=org.phone_numbers,
+        secondary_phone=org.secondary_phone,
+        address=org.address,
+        city=org.city,
+        state=org.state,
+        pincode=org.pincode,
+        website_link=org.website_link,
+        description=org.description,
         created_at=org.created_at.isoformat() if org.created_at else "",
         updated_at=org.updated_at.isoformat() if org.updated_at else None
     )
@@ -177,7 +328,15 @@ async def create_organisation(
         name=org_data.name,
         email=org_data.email,
         status=org_data.status,
-        plan_type=org_data.plan_type
+        plan_type=org_data.plan_type,
+        phone_numbers=org_data.phone_numbers,
+        secondary_phone=org_data.secondary_phone,
+        address=org_data.address,
+        city=org_data.city,
+        state=org_data.state,
+        pincode=org_data.pincode,
+        website_link=org_data.website_link,
+        description=org_data.description
     )
     
     db.add(new_org)
@@ -192,7 +351,14 @@ async def create_organisation(
         email=new_org.email,
         status=new_org.status,
         plan_type=new_org.plan_type,
-        phone_numbers=None,
+        phone_numbers=new_org.phone_numbers,
+        secondary_phone=new_org.secondary_phone,
+        address=new_org.address,
+        city=new_org.city,
+        state=new_org.state,
+        pincode=new_org.pincode,
+        website_link=new_org.website_link,
+        description=new_org.description,
         created_at=new_org.created_at.isoformat() if new_org.created_at else "",
         updated_at=None
     )
@@ -239,7 +405,14 @@ async def update_organisation(
         email=org.email,
         status=org.status,
         plan_type=org.plan_type,
-        phone_numbers=json.loads(org.phone_numbers) if org.phone_numbers else None,
+        phone_numbers=org.phone_numbers,
+        secondary_phone=org.secondary_phone,
+        address=org.address,
+        city=org.city,
+        state=org.state,
+        pincode=org.pincode,
+        website_link=org.website_link,
+        description=org.description,
         created_at=org.created_at.isoformat() if org.created_at else "",
         updated_at=org.updated_at.isoformat() if org.updated_at else None
     )
@@ -424,90 +597,8 @@ async def create_brand(
         created_at=new_brand.created_at.isoformat() if new_brand.created_at else ""
     )
 
-# ==================== Product Management ====================
+# (Product Management moved to product_router at the bottom)
 
-@router.get("/{org_id}/products", response_model=List[ProductResponse])
-async def get_organisation_products(
-    org_id: int,
-    skip: int = 0,
-    limit: int = 100,
-    db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_super_admin)
-):
-    """Get all products for an organisation"""
-    result = await db.execute(
-        select(Product).where(Product.organisation_id == org_id).offset(skip).limit(limit)
-    )
-    products = result.scalars().all()
-    
-    return [
-        ProductResponse(
-            id=prod.id,
-            organisation_id=prod.organisation_id,
-            brand_id=prod.brand_id,
-            name=prod.name,
-            category=prod.category,
-            sub_category=prod.sub_category,
-            description=prod.description,
-            target_crops=json.loads(prod.target_crops) if prod.target_crops else None,
-            target_problems=json.loads(prod.target_problems) if prod.target_problems else None,
-            dosage=prod.dosage,
-            usage_instructions=prod.usage_instructions,
-            safety_precautions=prod.safety_precautions,
-            price_range=prod.price_range,
-            is_active=prod.is_active,
-            created_at=prod.created_at.isoformat() if prod.created_at else ""
-        )
-        for prod in products
-    ]
-
-@router.post("/{org_id}/products", response_model=ProductResponse)
-async def create_product(
-    org_id: int,
-    product_data: ProductCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(get_current_super_admin)
-):
-    """Create product for organisation"""
-    new_product = Product(
-        organisation_id=org_id,
-        brand_id=product_data.brand_id,
-        name=product_data.name,
-        category=product_data.category,
-        sub_category=product_data.sub_category,
-        description=product_data.description,
-        target_crops=json.dumps(product_data.target_crops) if product_data.target_crops else None,
-        target_problems=json.dumps(product_data.target_problems) if product_data.target_problems else None,
-        dosage=product_data.dosage,
-        usage_instructions=product_data.usage_instructions,
-        safety_precautions=product_data.safety_precautions,
-        price_range=product_data.price_range,
-        is_active=True
-    )
-    
-    db.add(new_product)
-    await db.commit()
-    await db.refresh(new_product)
-    
-    logger.info(f"Created product {product_data.name} for org {org_id}")
-    
-    return ProductResponse(
-        id=new_product.id,
-        organisation_id=new_product.organisation_id,
-        brand_id=new_product.brand_id,
-        name=new_product.name,
-        category=new_product.category,
-        sub_category=new_product.sub_category,
-        description=new_product.description,
-        target_crops=product_data.target_crops,
-        target_problems=product_data.target_problems,
-        dosage=new_product.dosage,
-        usage_instructions=new_product.usage_instructions,
-        safety_precautions=new_product.safety_precautions,
-        price_range=new_product.price_range,
-        is_active=new_product.is_active,
-        created_at=new_product.created_at.isoformat() if new_product.created_at else ""
-    )
 
 # ==================== Phone Number Lookup (For Call Routing) ====================
 
@@ -577,15 +668,23 @@ brand_router = APIRouter(prefix="/brands", tags=["brands"])
 
 @brand_router.get("")
 async def get_all_brands(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_super_admin)
+    current_user = Depends(get_current_user)
 ):
-    """Get all brands (super admin only)"""
-    result = await db.execute(
-        select(Brand).offset(skip).limit(limit)
-    )
+    """Get brands (Filtered by organisation if not superadmin)"""
+    # Check if superadmin
+    is_superadmin = current_user.get("role") in ["admin", "superadmin"]
+    org_id = current_user.get("organisation_id")
+
+    query = select(Brand)
+    if not is_superadmin:
+        if not org_id:
+            raise HTTPException(status_code=400, detail="Organisation ID not found for user")
+        query = query.where(Brand.organisation_id == org_id)
+    
+    result = await db.execute(query.offset(skip).limit(limit))
     brands = result.scalars().all()
     
     # Get product count for each brand
@@ -596,12 +695,21 @@ async def get_all_brands(
         )
         product_count = product_result.scalar()
         
+        # Get company name if associated
+        company_name = None
+        if brand.company_id:
+            from db.models.company import Company
+            company_result = await db.execute(select(Company.name).where(Company.id == brand.company_id))
+            company_name = company_result.scalar()
+
         brands_with_count.append({
             "id": brand.id,
             "name": brand.name,
             "organisation_id": brand.organisation_id,
             "company_id": brand.company_id,
+            "company_name": company_name,
             "description": brand.description,
+            "logo_url": brand.logo_url,
             "is_active": brand.is_active,
             "created_at": brand.created_at.isoformat() if brand.created_at else None,
             "product_count": product_count
@@ -613,14 +721,22 @@ async def get_all_brands(
 async def get_brand(
     brand_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_super_admin)
+    current_user = Depends(get_current_user)
 ):
     """Get a specific brand"""
-    result = await db.execute(select(Brand).where(Brand.id == brand_id))
+    # Check access
+    is_superadmin = current_user.get("role") in ["admin", "superadmin"]
+    org_id = current_user.get("organisation_id")
+
+    query = select(Brand).where(Brand.id == brand_id)
+    if not is_superadmin:
+        query = query.where(Brand.organisation_id == org_id)
+
+    result = await db.execute(query)
     brand = result.scalar_one_or_none()
     
     if not brand:
-        raise HTTPException(status_code=404, detail="Brand not found")
+        raise HTTPException(status_code=404, detail="Brand not found or access denied")
     
     return {
         "id": brand.id,
@@ -673,22 +789,38 @@ async def get_brand_products(
 async def create_brand(
     brand: BrandCreate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_super_admin)
+    current_user = Depends(get_current_user)
 ):
     """Create a new brand"""
+    is_superadmin = current_user.get("role") in ["admin", "superadmin"]
+    org_id = brand.organisation_id if is_superadmin else current_user.get("organisation_id")
+
+    if not org_id:
+        raise HTTPException(status_code=400, detail="Organisation ID is required")
+
     # Verify organisation exists
     org_result = await db.execute(
-        select(Organisation).where(Organisation.id == brand.organisation_id)
+        select(Organisation).where(Organisation.id == org_id)
     )
     org = org_result.scalar_one_or_none()
     if not org:
         raise HTTPException(status_code=404, detail="Organisation not found")
     
+    # Verify company exists if provided
+    if brand.company_id:
+        from db.models.company import Company
+        company_result = await db.execute(
+            select(Company).where(and_(Company.id == brand.company_id, Company.organisation_id == org_id))
+        )
+        if not company_result.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Invalid company ID for this organisation")
+
     new_brand = Brand(
         name=brand.name,
-        organisation_id=brand.organisation_id,
+        organisation_id=org_id,
         company_id=brand.company_id,
         description=brand.description,
+        logo_url=brand.logo_url,
         is_active=brand.is_active
     )
     
@@ -702,6 +834,7 @@ async def create_brand(
         "organisation_id": new_brand.organisation_id,
         "company_id": new_brand.company_id,
         "description": new_brand.description,
+        "logo_url": new_brand.logo_url,
         "is_active": new_brand.is_active,
         "created_at": new_brand.created_at.isoformat() if new_brand.created_at else None
     }
@@ -711,18 +844,32 @@ async def update_brand(
     brand_id: int,
     brand_update: BrandUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_super_admin)
+    current_user = Depends(get_current_user)
 ):
     """Update a brand"""
-    result = await db.execute(select(Brand).where(Brand.id == brand_id))
+    is_superadmin = current_user.get("role") in ["admin", "superadmin"]
+    org_id = current_user.get("organisation_id")
+
+    query = select(Brand).where(Brand.id == brand_id)
+    if not is_superadmin:
+        query = query.where(Brand.organisation_id == org_id)
+
+    result = await db.execute(query)
     brand = result.scalar_one_or_none()
     
     if not brand:
-        raise HTTPException(status_code=404, detail="Brand not found")
+        raise HTTPException(status_code=404, detail="Brand not found or access denied")
     
     if brand_update.name is not None:
         brand.name = brand_update.name
     if brand_update.company_id is not None:
+        # Verify company belongs to same organisation
+        from db.models.company import Company
+        company_result = await db.execute(
+            select(Company).where(and_(Company.id == brand_update.company_id, Company.organisation_id == brand.organisation_id))
+        )
+        if not company_result.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Invalid company ID for this organisation")
         brand.company_id = brand_update.company_id
     if brand_update.description is not None:
         brand.description = brand_update.description
@@ -746,22 +893,33 @@ async def update_brand(
 async def delete_brand(
     brand_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_super_admin)
+    current_user = Depends(get_current_user)
 ):
     """Delete a brand and all its products"""
-    result = await db.execute(select(Brand).where(Brand.id == brand_id))
+    is_superadmin = current_user.get("role") in ["admin", "superadmin"]
+    org_id = current_user.get("organisation_id")
+
+    query = select(Brand).where(Brand.id == brand_id)
+    if not is_superadmin:
+        query = query.where(Brand.organisation_id == org_id)
+
+    result = await db.execute(query)
     brand = result.scalar_one_or_none()
     
     if not brand:
-        raise HTTPException(status_code=404, detail="Brand not found")
+        raise HTTPException(status_code=404, detail="Brand not found or access denied")
     
-    # Delete associated products first
-    await db.execute(select(Product).where(Product.brand_id == brand_id))
+    # Delete all associated products first
+    from sqlalchemy import delete as sa_delete
+    product_delete = await db.execute(
+        sa_delete(Product).where(Product.brand_id == brand_id)
+    )
+    deleted_products = product_delete.rowcount
     
     await db.delete(brand)
     await db.commit()
     
-    return {"message": "Brand deleted successfully"}
+    return {"message": f"Brand and {deleted_products} associated product(s) deleted successfully"}
 
 @brand_router.get("/organisation/{organisation_id}")
 async def get_brands_by_organisation(
@@ -791,26 +949,7 @@ async def get_brands_by_organisation(
 
 # ==================== Product Management ====================
 
-class ProductCreate(BaseModel):
-    name: str = Field(..., min_length=2, max_length=200)
-    brand_id: int
-    description: Optional[str] = None
-    category: Optional[str] = None
-    target_crops: Optional[str] = None
-    target_problems: Optional[str] = None
-    application_method: Optional[str] = None
-    dosage_info: Optional[str] = None
-    is_active: bool = True
-
-class ProductUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=2, max_length=200)
-    description: Optional[str] = None
-    category: Optional[str] = None
-    target_crops: Optional[str] = None
-    target_problems: Optional[str] = None
-    application_method: Optional[str] = None
-    dosage_info: Optional[str] = None
-    is_active: Optional[bool] = None
+# (Product models consolidated at the top)
 
 class ProductResponse(BaseModel):
     id: int
@@ -830,57 +969,112 @@ product_router = APIRouter(prefix="/products", tags=["products"])
 
 @product_router.get("")
 async def get_all_products(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_super_admin)
+    current_user = Depends(get_current_user)
 ):
-    """Get all products (super admin only)"""
-    result = await db.execute(
-        select(Product).offset(skip).limit(limit)
-    )
+    """Get products (Filtered by organisation if not superadmin)"""
+    is_superadmin = current_user.get("role") in ["admin", "superadmin"]
+    org_id = current_user.get("organisation_id")
+
+    # If superadmin, see all. If org admin, see only theirs.
+    if is_superadmin:
+        result = await db.execute(select(Product).offset(skip).limit(limit))
+    else:
+        if not org_id:
+            raise HTTPException(status_code=400, detail="Organisation ID not found for user")
+        result = await db.execute(
+            select(Product).where(Product.organisation_id == org_id).offset(skip).limit(limit)
+        )
     products = result.scalars().all()
     
-    return [
-        {
+    # Get brand and company names
+    from db.models.company import Company
+    
+    response_data = []
+    for product in products:
+        company_name = None
+        brand_name = None
+        
+        if product.company_id:
+            co_res = await db.execute(select(Company.name).where(Company.id == product.company_id))
+            company_name = co_res.scalar()
+            
+        if product.brand_id:
+            br_res = await db.execute(select(Brand.name).where(Brand.id == product.brand_id))
+            brand_name = br_res.scalar()
+            
+        response_data.append({
             "id": product.id,
             "name": product.name,
             "brand_id": product.brand_id,
+            "brand_name": brand_name,
+            "organisation_id": product.organisation_id,
+            "company_id": product.company_id,
+            "company_name": company_name,
             "description": product.description,
             "category": product.category,
+            "sub_category": product.sub_category,
             "target_crops": product.target_crops,
             "target_problems": product.target_problems,
-            "application_method": product.usage_instructions,
-            "dosage_info": product.dosage,
+            "usage_instructions": product.usage_instructions,
+            "dosage": product.dosage,
+            "safety_precautions": product.safety_precautions,
+            "price_range": product.price_range,
             "is_active": product.is_active,
             "created_at": product.created_at.isoformat() if product.created_at else None
-        }
-        for product in products
-    ]
+        })
+    
+    return response_data
 
 @product_router.get("/{product_id}")
 async def get_product(
     product_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_super_admin)
+    current_user = Depends(get_current_user)
 ):
     """Get a specific product"""
-    result = await db.execute(select(Product).where(Product.id == product_id))
+    is_superadmin = current_user.get("role") in ["admin", "superadmin"]
+    org_id = current_user.get("organisation_id")
+
+    query = select(Product).where(Product.id == product_id)
+    if not is_superadmin:
+        query = query.where(Product.organisation_id == org_id)
+
+    result = await db.execute(query)
     product = result.scalar_one_or_none()
     
     if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail="Product not found or access denied")
     
+    company_name = None
+    brand_name = None
+    if product.company_id:
+        from db.models.company import Company
+        co_res = await db.execute(select(Company.name).where(Company.id == product.company_id))
+        company_name = co_res.scalar()
+    
+    if product.brand_id:
+        br_res = await db.execute(select(Brand.name).where(Brand.id == product.brand_id))
+        brand_name = br_res.scalar()
+
     return {
         "id": product.id,
         "name": product.name,
         "brand_id": product.brand_id,
+        "brand_name": brand_name,
+        "organisation_id": product.organisation_id,
+        "company_id": product.company_id,
+        "company_name": company_name,
         "description": product.description,
         "category": product.category,
         "target_crops": product.target_crops,
         "target_problems": product.target_problems,
-        "application_method": product.usage_instructions,
-        "dosage_info": product.dosage,
+        "usage_instructions": product.usage_instructions,
+        "dosage": product.dosage,
+        "safety_precautions": product.safety_precautions,
+        "price_range": product.price_range,
         "is_active": product.is_active,
         "created_at": product.created_at.isoformat() if product.created_at else None
     }
@@ -889,7 +1083,7 @@ async def get_product(
 async def create_product(
     product: ProductCreate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_super_admin)
+    current_user = Depends(get_current_user)
 ):
     """Create a new product"""
     # Verify brand exists and get its organisation_id and company_id
@@ -907,10 +1101,13 @@ async def create_product(
         company_id=brand.company_id,
         description=product.description,
         category=product.category or "other",
+        sub_category=product.sub_category,
         target_crops=product.target_crops,
         target_problems=product.target_problems,
-        dosage=product.dosage_info,
-        usage_instructions=product.application_method,
+        dosage=product.dosage,
+        usage_instructions=product.usage_instructions,
+        safety_precautions=product.safety_precautions,
+        price_range=product.price_range,
         is_active=product.is_active
     )
     
@@ -918,18 +1115,28 @@ async def create_product(
     await db.commit()
     await db.refresh(new_product)
     
+    brand_name = brand.name if brand else None
+    company_name = None
+    if brand.company_id:
+        from db.models.company import Company
+        co_res = await db.execute(select(Company.name).where(Company.id == brand.company_id))
+        company_name = co_res.scalar()
+
     return {
         "id": new_product.id,
         "name": new_product.name,
         "brand_id": new_product.brand_id,
+        "brand_name": brand_name,
         "organisation_id": new_product.organisation_id,
         "company_id": new_product.company_id,
+        "company_name": company_name,
         "description": new_product.description,
         "category": new_product.category,
+        "sub_category": new_product.sub_category,
         "target_crops": new_product.target_crops,
         "target_problems": new_product.target_problems,
-        "application_method": new_product.usage_instructions,
-        "dosage_info": new_product.dosage,
+        "usage_instructions": new_product.usage_instructions,
+        "dosage": new_product.dosage,
         "is_active": new_product.is_active,
         "created_at": new_product.created_at.isoformat() if new_product.created_at else None
     }
@@ -939,45 +1146,85 @@ async def update_product(
     product_id: int,
     product_update: ProductUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_super_admin)
+    current_user = Depends(get_current_user)
 ):
     """Update a product"""
-    result = await db.execute(select(Product).where(Product.id == product_id))
+    is_superadmin = current_user.get("role") in ["admin", "superadmin"]
+    org_id = current_user.get("organisation_id")
+
+    query = select(Product).where(Product.id == product_id)
+    if not is_superadmin:
+        query = query.where(Product.organisation_id == org_id)
+
+    result = await db.execute(query)
     product = result.scalar_one_or_none()
     
     if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail="Product not found or access denied")
     
     if product_update.name is not None:
         product.name = product_update.name
-    if product_update.description is not None:
-        product.description = product_update.description
+    if product_update.brand_id is not None:
+        # Verify brand exists and belongs to same org
+        brand_res = await db.execute(select(Brand).where(Brand.id == product_update.brand_id))
+        brand = brand_res.scalar_one_or_none()
+        if not brand or brand.organisation_id != product.organisation_id:
+            raise HTTPException(status_code=400, detail="Invalid brand for this organisation")
+        product.brand_id = product_update.brand_id
+        product.company_id = brand.company_id
     if product_update.category is not None:
         product.category = product_update.category
+    if product_update.sub_category is not None:
+        product.sub_category = product_update.sub_category
+    if product_update.description is not None:
+        product.description = product_update.description
     if product_update.target_crops is not None:
         product.target_crops = product_update.target_crops
     if product_update.target_problems is not None:
         product.target_problems = product_update.target_problems
-    if product_update.application_method is not None:
-        product.usage_instructions = product_update.application_method
-    if product_update.dosage_info is not None:
-        product.dosage = product_update.dosage_info
+    if product_update.dosage is not None:
+        product.dosage = product_update.dosage
+    if product_update.usage_instructions is not None:
+        product.usage_instructions = product_update.usage_instructions
+    if product_update.safety_precautions is not None:
+        product.safety_precautions = product_update.safety_precautions
+    if product_update.price_range is not None:
+        product.price_range = product_update.price_range
     if product_update.is_active is not None:
         product.is_active = product_update.is_active
     
     await db.commit()
     await db.refresh(product)
     
+    # Get names for response
+    company_name = None
+    brand_name = None
+    if product.company_id:
+        from db.models.company import Company
+        co_res = await db.execute(select(Company.name).where(Company.id == product.company_id))
+        company_name = co_res.scalar()
+    
+    if product.brand_id:
+        br_res = await db.execute(select(Brand.name).where(Brand.id == product.brand_id))
+        brand_name = br_res.scalar()
+
     return {
         "id": product.id,
         "name": product.name,
         "brand_id": product.brand_id,
+        "brand_name": brand_name,
+        "organisation_id": product.organisation_id,
+        "company_id": product.company_id,
+        "company_name": company_name,
         "description": product.description,
         "category": product.category,
+        "sub_category": product.sub_category,
         "target_crops": product.target_crops,
         "target_problems": product.target_problems,
-        "application_method": product.usage_instructions,
-        "dosage_info": product.dosage,
+        "usage_instructions": product.usage_instructions,
+        "dosage": product.dosage,
+        "safety_precautions": product.safety_precautions,
+        "price_range": product.price_range,
         "is_active": product.is_active,
         "created_at": product.created_at.isoformat() if product.created_at else None
     }
@@ -986,14 +1233,21 @@ async def update_product(
 async def delete_product(
     product_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_super_admin)
+    current_user = Depends(get_current_user)
 ):
     """Delete a product"""
-    result = await db.execute(select(Product).where(Product.id == product_id))
+    is_superadmin = current_user.get("role") in ["admin", "superadmin"]
+    org_id = current_user.get("organisation_id")
+
+    query = select(Product).where(Product.id == product_id)
+    if not is_superadmin:
+        query = query.where(Product.organisation_id == org_id)
+
+    result = await db.execute(query)
     product = result.scalar_one_or_none()
     
     if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail="Product not found or access denied")
     
     await db.delete(product)
     await db.commit()
@@ -1069,36 +1323,119 @@ async def get_products_by_organisation(
     ]
 
 
+@product_router.get("/import/template/{type}")
+async def get_product_import_template(
+    type: str,
+    current_user = Depends(get_current_user)
+):
+    """
+    Download product import template (CSV or Excel)
+    """
+    headers = [
+        "name", "brand_name", "category", "sub_category", "description", 
+        "target_crops", "target_problems", "dosage", "usage_instructions", 
+        "safety_precautions", "price_range", "is_active"
+    ]
+    
+    if type == "csv":
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(headers)
+        # Add a sample row
+        writer.writerow([
+            "Sample Product", "Sample Brand", "Seeds", "Hybrid", "High yield seeds", 
+            "Cotton, Wheat", "Pest attack", "2kg/acre", "Sow at 2 inch depth", 
+            "Keep away from children", "500-1000", "true"
+        ])
+        
+        return StreamingResponse(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=products_template.csv"}
+        )
+    elif type == "excel":
+        if not openpyxl:
+            raise HTTPException(status_code=400, detail="Excel support not available.")
+        
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(headers)
+        ws.append([
+            "Sample Product", "Sample Brand", "Seeds", "Hybrid", "High yield seeds", 
+            "Cotton, Wheat", "Pest attack", "2kg/acre", "Sow at 2 inch depth", 
+            "Keep away from children", "500-1000", "true"
+        ])
+        
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=products_template.xlsx"}
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Invalid template type. Use 'csv' or 'excel'.")
+
 @product_router.post("/upload-csv")
 async def upload_products_csv(
     file: UploadFile = File(...),
-    brand_id: int = Form(...),
+    brand_id: Optional[int] = Form(None),
+    brand_name: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_super_admin)
+    current_user = Depends(get_current_user)
 ):
     """
-    Upload products via CSV or Excel file (Super Admin only)
-    All products will be associated with the specified brand_id
-    Expected columns: name, category, description, target_crops, 
-                     target_problems, dosage, usage_instructions, is_active
+    Upload products via CSV or Excel file
+    Supports providing brand_id OR brand_name (default for all rows) 
+    OR per-row brand_name in the file.
     """
+    is_superadmin = current_user.get("role") in ["admin", "superadmin"]
+    user_org_id = current_user.get("organisation_id")
     
-    logger.info(f"🔍 Admin CSV Upload - File: {file.filename}, Brand ID: {brand_id}")
+    logger.info(f"🔍 Product CSV Upload - File: {file.filename}, Brand ID: {brand_id}, Brand Name: {brand_name}")
     
     if not file.filename.endswith(('.csv', '.xlsx', '.xls')):
         raise HTTPException(status_code=400, detail="Invalid file format. Please upload CSV or Excel file.")
     
-    # Verify brand exists and get its organisation_id and company_id
-    brand_result = await db.execute(select(Brand).where(Brand.id == brand_id))
-    brand = brand_result.scalar_one_or_none()
+    # Initial brand check if brand_id is provided
+    default_brand = None
+    if brand_id:
+        brand_result = await db.execute(select(Brand).where(Brand.id == brand_id))
+        default_brand = brand_result.scalar_one_or_none()
+        if not default_brand:
+            raise HTTPException(status_code=404, detail=f"Brand ID {brand_id} not found")
+        # Check ownership
+        if not is_superadmin and default_brand.organisation_id != user_org_id:
+            raise HTTPException(status_code=403, detail="Access denied to this brand")
     
-    if not brand:
-        raise HTTPException(status_code=404, detail=f"Brand ID {brand_id} not found")
-    
-    logger.info(f"✅ Brand found: {brand.name} (org={brand.organisation_id}, company={brand.company_id})")
-    
+    # helper to get or create brand
+    async def get_or_create_brand(name_to_use, org_id):
+        if not name_to_use or not org_id: return None
+        # Check existing
+        brand_res = await db.execute(
+            select(Brand).where(and_(Brand.name == name_to_use, Brand.organisation_id == org_id))
+        )
+        existing_brand = brand_res.scalar_one_or_none()
+        if existing_brand:
+            return existing_brand
+        
+        # Create new
+        new_b = Brand(name=name_to_use, organisation_id=org_id, is_active=True)
+        db.add(new_b)
+        await db.flush() # Get ID without committing
+        return new_b
+
+    # Determine default brand from name if provided and ID is not
+    if not default_brand and brand_name and user_org_id:
+        default_brand = await get_or_create_brand(brand_name, user_org_id)
+
     success_count = 0
     errors = []
+    brand_cache = {} # cache brand objects to avoid redundant DB hits
+    if default_brand:
+        brand_cache[default_brand.name] = default_brand
     
     try:
         content = await file.read()
@@ -1130,12 +1467,39 @@ async def upload_products_csv(
                     logger.warning(f"⚠️ Row {idx}: Skipping - missing name. Row: {row}")
                     continue
                 
-                logger.info(f"✅ Row {idx}: Creating product '{row.get('name')}'")
+                # Determine brand for this specific row
+                row_brand_name = row.get('brand_name') or brand_name
+                current_row_brand = default_brand
+                
+                if row_brand_name and user_org_id:
+                    if row_brand_name in brand_cache:
+                        current_row_brand = brand_cache[row_brand_name]
+                    else:
+                        current_row_brand = await get_or_create_brand(row_brand_name, user_org_id)
+                        brand_cache[row_brand_name] = current_row_brand
+
+                if not current_row_brand:
+                    # Fallback to organisation level if no brand info
+                    target_org_id = user_org_id
+                    target_brand_id = None
+                    target_company_id = None
+                else:
+                    target_org_id = current_row_brand.organisation_id
+                    target_brand_id = current_row_brand.id
+                    target_company_id = current_row_brand.company_id
+
+                if not target_org_id:
+                    error_msg = f"Row {idx}: Missing organisation context"
+                    logger.error(f"❌ {error_msg}")
+                    errors.append(error_msg)
+                    continue
+
+                logger.info(f"✅ Row {idx}: Creating product '{row.get('name')}' for brand {target_brand_id}")
                 
                 product = Product(
-                    organisation_id=brand.organisation_id,
-                    company_id=brand.company_id,
-                    brand_id=brand_id,
+                    organisation_id=target_org_id,
+                    company_id=target_company_id,
+                    brand_id=target_brand_id,
                     name=str(row.get('name', '')).strip(),
                     category=str(row.get('category', 'other')).strip(),
                     sub_category=str(row.get('sub_category', '')).strip() if row.get('sub_category') else None,
@@ -1169,7 +1533,7 @@ async def upload_products_csv(
             logger.warning(f"⚠️ No products to commit")
         
         return {
-            "message": f"CSV processed successfully. {success_count} products added to brand '{brand.name}'",
+            "message": f"CSV processed successfully. {success_count} products added to brand '{default_brand.name if default_brand else 'multiple brands'}'",
             "success_count": success_count,
             "error_count": len(errors),
             "errors": errors[:10]

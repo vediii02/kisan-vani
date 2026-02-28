@@ -14,6 +14,7 @@ import {
   Eye,
   TrendingUp
 } from 'lucide-react';
+import { getErrorMessage } from '@/lib/utils';
 import api from '../api/api';
 
 const OrganisationsPlatformManagement = () => {
@@ -49,8 +50,8 @@ const OrganisationsPlatformManagement = () => {
 
   const toggleOrganisationStatus = async (orgId, currentStatus) => {
     if (!window.confirm(
-      currentStatus ? 
-        'Suspend this organisation? All their services will be disabled.' : 
+      currentStatus ?
+        'Suspend this organisation? All their services will be disabled.' :
         'Activate this organisation? Their services will resume.'
     )) {
       return;
@@ -58,10 +59,10 @@ const OrganisationsPlatformManagement = () => {
 
     try {
       setProcessingId(orgId);
-      await api.patch(`/superadmin/organisations/${orgId}/status`, {
+      await api.patch(`/superadmin/organisations-platform/${orgId}/status`, {
         is_active: !currentStatus
       });
-      
+
       // Update local state
       setOrganisations(orgs =>
         orgs.map(org =>
@@ -81,7 +82,7 @@ const OrganisationsPlatformManagement = () => {
       alert('Please enter organisation name');
       return;
     }
-    
+
     if (!newOrgPhoneNumber.trim()) {
       alert('Please enter phone number for farmers to call');
       return;
@@ -89,17 +90,17 @@ const OrganisationsPlatformManagement = () => {
 
     setCreating(true);
     try {
-      const response = await api.post('/superadmin/organisations', {
+      const response = await api.post('/superadmin/organisations-platfrom', {
         name: newOrgName.trim(),
-        primary_phone: newOrgPhoneNumber.trim(),
+        phone_numbers: newOrgPhoneNumber.trim(),
         description: newOrgDescription.trim() || null,
         website_url: newOrgWebsite.trim() || null,
         auto_import_products: autoImport && newOrgWebsite.trim() !== '',
         admin_password: newOrgPassword.trim() || null
       });
-      
+
       let message = `✅ Organisation "${newOrgName}" created successfully!`;
-      
+
       if (response.data.admin_user) {
         const admin = response.data.admin_user;
         message += `\n\n👤 Admin User Created:`;
@@ -108,16 +109,16 @@ const OrganisationsPlatformManagement = () => {
         message += `\n📬 Email: ${admin.email}`;
         message += `\n\n⚠️ IMPORTANT: Save these credentials! Password is shown only once.`;
       }
-      
+
       if (response.data.import_result) {
         const result = response.data.import_result;
         message += `\n\n🎉 Auto-imported ${result.imported} products`;
         message += `\n📦 Brand created: ${result.brand_name}`;
         message += `\n🔍 Total found: ${result.total_found}`;
       }
-      
+
       alert(message);
-      
+
       // Close modal and reset form
       setShowCreateModal(false);
       setNewOrgName('');
@@ -126,7 +127,7 @@ const OrganisationsPlatformManagement = () => {
       setNewOrgWebsite('');
       setNewOrgPassword('');
       setAutoImport(true);
-      
+
       // Refresh list separately to avoid affecting success message
       try {
         await fetchOrganisations();
@@ -136,9 +137,8 @@ const OrganisationsPlatformManagement = () => {
       }
     } catch (error) {
       console.error('Error creating organisation:', error);
-      const errorMsg = error.response?.data?.detail || error.message || 'Failed to create organisation';
-      alert(`❌ Error: ${errorMsg}`);
-      
+      alert(`❌ Error: ${getErrorMessage(error)}`);
+
       // If organisation already exists, close modal and refresh list
       if (errorMsg.includes('already exists')) {
         setShowCreateModal(false);
@@ -148,7 +148,7 @@ const OrganisationsPlatformManagement = () => {
         setNewOrgWebsite('');
         setNewOrgPassword('');
         setAutoImport(true);
-        
+
         // Refresh to show existing organisation
         try {
           await fetchOrganisations();
@@ -205,7 +205,7 @@ const OrganisationsPlatformManagement = () => {
             <Building2 className="h-10 w-10 text-blue-500" />
           </div>
         </div>
-        
+
         <div className="bg-white rounded-lg shadow p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -276,9 +276,8 @@ const OrganisationsPlatformManagement = () => {
               <tr key={org.id} className={`hover:bg-gray-50 transition-colors ${!org.is_active ? 'bg-red-50' : ''}`}>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
-                    <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${
-                      org.is_active ? 'bg-blue-100' : 'bg-gray-300'
-                    }`}>
+                    <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${org.is_active ? 'bg-blue-100' : 'bg-gray-300'
+                      }`}>
                       <Building2 className={`h-5 w-5 ${org.is_active ? 'text-blue-600' : 'text-gray-600'}`} />
                     </div>
                     <div className="ml-4">
@@ -287,7 +286,7 @@ const OrganisationsPlatformManagement = () => {
                     </div>
                   </div>
                 </td>
-                
+
                 <td className="px-6 py-4 whitespace-nowrap text-center">
                   {org.is_active ? (
                     <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
@@ -299,45 +298,44 @@ const OrganisationsPlatformManagement = () => {
                     </span>
                   )}
                 </td>
-                
+
                 <td className="px-6 py-4 whitespace-nowrap text-center">
                   <div className="flex items-center justify-center gap-2">
                     <Package className="h-4 w-4 text-purple-500" />
                     <span className="text-sm font-medium text-gray-900">{org.brand_count || 0}</span>
                   </div>
                 </td>
-                
+
                 <td className="px-6 py-4 whitespace-nowrap text-center">
                   <div className="flex items-center justify-center gap-2">
                     <TrendingUp className="h-4 w-4 text-green-500" />
                     <span className="text-sm font-medium text-gray-900">{org.product_count || 0}</span>
                   </div>
                 </td>
-                
+
                 <td className="px-6 py-4 whitespace-nowrap text-center">
                   <div className="flex items-center justify-center gap-2">
                     <Phone className="h-4 w-4 text-blue-500" />
                     <span className="text-sm font-medium text-gray-900">{org.phone_count || 0}</span>
                   </div>
                 </td>
-                
+
                 <td className="px-6 py-4 whitespace-nowrap text-center">
                   <div className="flex items-center justify-center gap-2">
                     <PhoneCall className="h-4 w-4 text-indigo-500" />
                     <span className="text-sm font-medium text-gray-900">{org.call_count || 0}</span>
                   </div>
                 </td>
-                
+
                 <td className="px-6 py-4 whitespace-nowrap text-center">
                   <div className="flex items-center justify-center gap-2">
                     <button
                       onClick={() => toggleOrganisationStatus(org.id, org.is_active)}
                       disabled={processingId === org.id}
-                      className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium transition-all ${
-                        org.is_active
-                          ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                          : 'bg-green-100 text-green-700 hover:bg-green-200'
-                      } ${processingId === org.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium transition-all ${org.is_active
+                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                        : 'bg-green-100 text-green-700 hover:bg-green-200'
+                        } ${processingId === org.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       {processingId === org.id ? (
                         <>
@@ -356,7 +354,7 @@ const OrganisationsPlatformManagement = () => {
                         </>
                       )}
                     </button>
-                    
+
                     <button
                       onClick={() => navigate(`/superadmin/organisations-platform/${org.id}`)}
                       className="flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 transition-all"
@@ -387,7 +385,7 @@ const OrganisationsPlatformManagement = () => {
               <Building2 className="h-6 w-6 text-blue-600" />
               Add New Organisation
             </h2>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -397,7 +395,7 @@ const OrganisationsPlatformManagement = () => {
                   type="text"
                   value={newOrgName}
                   onChange={(e) => setNewOrgName(e.target.value)}
-                 
+
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   disabled={creating}
                 />
@@ -412,7 +410,7 @@ const OrganisationsPlatformManagement = () => {
                   type="tel"
                   value={newOrgPhoneNumber}
                   onChange={(e) => setNewOrgPhoneNumber(e.target.value)}
-                  
+
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   disabled={creating}
                 />
@@ -451,7 +449,7 @@ const OrganisationsPlatformManagement = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                   Password 
+                  Password
                 </label>
                 <input
                   type="password"
@@ -460,7 +458,7 @@ const OrganisationsPlatformManagement = () => {
                   placeholder="Leave empty to auto-generate"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   disabled={creating}
-               required />
+                  required />
                 <p className="text-xs text-gray-500 mt-1">
                   If not provided, a secure random password will be generated
                 </p>

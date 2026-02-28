@@ -18,7 +18,9 @@ export default function CompanyDashboard() {
     totalBrands: 0,
     totalProducts: 0,
     activeBrands: 0,
+    inactiveBrands: 0,
     activeProducts: 0,
+    inactiveProducts: 0,
     totalCalls: 0,
     recentQueries: 0
   });
@@ -31,14 +33,22 @@ export default function CompanyDashboard() {
   const fetchDashboardStats = async () => {
     try {
       setLoading(true);
-      
-      // For now, show placeholder data since company-specific endpoints don't exist yet
-      // In the future, these can be replaced with actual API calls
+
+      const [brandsRes, productsRes] = await Promise.all([
+        api.get('/company/brands'),
+        api.get('/company/products'),
+      ]);
+
+      const brands = brandsRes.data || [];
+      const products = productsRes.data || [];
+
       setStats({
-        totalBrands: 0,
-        totalProducts: 0,
-        activeBrands: 0,
-        activeProducts: 0,
+        totalBrands: brands.length,
+        totalProducts: products.length,
+        activeBrands: brands.filter(b => b.is_active).length,
+        inactiveBrands: brands.filter(b => !b.is_active).length,
+        activeProducts: products.filter(p => p.is_active).length,
+        inactiveProducts: products.filter(p => !p.is_active).length,
         totalCalls: 0,
         recentQueries: 0
       });
@@ -97,44 +107,48 @@ export default function CompanyDashboard() {
     {
       title: 'Total Brands',
       value: stats.totalBrands,
-      description: `${stats.activeBrands} active`,
+      active: stats.activeBrands,
+      inactive: stats.inactiveBrands,
       icon: Tag,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50'
+      textColor: 'text-blue-600',
+      bgColor: 'bg-blue-50',
     },
     {
       title: 'Total Products',
       value: stats.totalProducts,
-      description: `${stats.activeProducts} active`,
+      active: stats.activeProducts,
+      inactive: stats.inactiveProducts,
       icon: Package,
-      color: 'text-green-600',
-      bgColor: 'bg-green-50'
+      textColor: 'text-emerald-600',
+      bgColor: 'bg-emerald-50',
     },
     {
       title: 'Total Calls',
       value: stats.totalCalls,
-      description: 'All time',
+      active: 0,
+      inactive: 0,
       icon: Phone,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50'
+      textColor: 'text-indigo-600',
+      bgColor: 'bg-indigo-50',
     },
     {
       title: 'Recent Queries',
       value: stats.recentQueries,
-      description: 'Last 30 days',
+      active: 0,
+      inactive: 0,
       icon: TrendingUp,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-50'
+      textColor: 'text-amber-600',
+      bgColor: 'bg-amber-50',
     }
   ];
 
   if (loading) {
     return (
-      <div className="p-6">
+      <div className="p-6 bg-white min-h-screen">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
+            <p className="mt-4 text-slate-500 font-medium">Loading dashboard...</p>
           </div>
         </div>
       </div>
@@ -142,11 +156,11 @@ export default function CompanyDashboard() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-8 bg-white min-h-screen">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Company Dashboard</h1>
-        <p className="text-muted-foreground mt-1">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Company Dashboard</h1>
+        <p className="text-slate-500 font-medium tracking-tight">
           Welcome back, {user?.full_name || user?.username}
         </p>
       </div>
@@ -156,349 +170,77 @@ export default function CompanyDashboard() {
         {statCards.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <Card key={index}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {stat.title}
-                </CardTitle>
-                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                  <Icon className={`h-4 w-4 ${stat.color}`} />
+            <Card key={index} className="relative overflow-hidden border border-slate-200 bg-white shadow-sm hover:shadow-md transition-all duration-200">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`p-2.5 rounded-xl ${stat.bgColor} ${stat.textColor}`}>
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{stat.title}</span>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground">
-                  {stat.description}
-                </p>
-              </CardContent>
+
+                <div className="flex items-baseline gap-2">
+                  <div className="text-4xl font-bold text-slate-900">{stat.value}</div>
+                </div>
+
+                <div className="flex items-center gap-3 mt-6">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 text-slate-600 rounded-lg border border-slate-100 text-xs font-semibold">
+                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                    {stat.active} Active
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 text-slate-600 rounded-lg border border-slate-100 text-xs font-semibold">
+                    <span className="w-1.5 h-1.5 bg-slate-300 rounded-full"></span>
+                    {stat.inactive} Inactive
+                  </div>
+                </div>
+              </div>
+              <div className={`absolute bottom-0 left-0 right-0 h-1 ${stat.bgColor.replace('bg-', 'bg-').replace('-50', '-200')}`} />
             </Card>
           );
         })}
       </div>
 
       {/* Quick Actions */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Tag className="h-5 w-5" />
-              Brand Management
-            </CardTitle>
-            <CardDescription>
-              Manage your company's brands
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <button 
-              onClick={() => navigate('/company/brands')}
-              className="text-sm text-primary hover:underline"
-            >
-              View all brands →
-            </button>
-          </CardContent>
-        </Card>
+      <div className="space-y-4">
+        <h2 className="text-xl font-bold text-slate-900 tracking-tight">Quick Actions</h2>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <Card
+            className="cursor-pointer border border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 group"
+            onClick={() => navigate('/company/brands')}
+          >
+            <CardHeader shadow={false}>
+              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform duration-200">
+                <Tag className="h-6 w-6" />
+              </div>
+              <CardTitle className="text-lg font-bold text-slate-900">Brand Management</CardTitle>
+              <CardDescription className="text-slate-500 font-medium italic">Manage your company's brands</CardDescription>
+            </CardHeader>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Product Catalog
-            </CardTitle>
-            <CardDescription>
-              Manage your product listings
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <button 
-              onClick={() => navigate('/company/products')}
-              className="text-sm text-primary hover:underline"
-            >
-              View all products →
-            </button>
-          </CardContent>
-        </Card>
+          <Card
+            className="cursor-pointer border border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 group"
+            onClick={() => navigate('/company/products')}
+          >
+            <CardHeader shadow={false}>
+              <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform duration-200">
+                <Package className="h-6 w-6" />
+              </div>
+              <CardTitle className="text-lg font-bold text-slate-900">Product Catalog</CardTitle>
+              <CardDescription className="text-slate-500 font-medium italic">Manage your product listings</CardDescription>
+            </CardHeader>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart className="h-5 w-5" />
-              Analytics
-            </CardTitle>
-            <CardDescription>
-              View performance metrics
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Coming soon...
-            </p>
-          </CardContent>
-        </Card>
+          <Card className="border border-slate-200 bg-slate-50/50 shadow-sm opacity-80">
+            <CardHeader shadow={false}>
+              <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mb-2">
+                <BarChart className="h-6 w-6" />
+              </div>
+              <CardTitle className="text-lg font-bold text-slate-400">Analytics</CardTitle>
+              <CardDescription className="text-slate-400 font-medium italic italic">Coming soon</CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
       </div>
-
-      {/* Company Info */}
-      <Card className="mt-6">
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle>Company Information</CardTitle>
-              <CardDescription>Your company details</CardDescription>
-            </div>
-            {!isEditing && companyProfile && (
-              <button
-                onClick={handleEdit}
-                className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-              >
-                Edit Profile
-              </button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {companyProfile ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-3">
-                <div>
-                  <span className="text-sm font-medium">Company Name:</span>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editForm.name || ''}
-                      onChange={(e) => handleInputChange('name', e.target.value)}
-                      className="ml-2 px-2 py-1 border rounded text-sm w-full max-w-xs"
-                    />
-                  ) : (
-                    <span className="text-sm text-muted-foreground ml-2">
-                      {companyProfile.name || 'N/A'}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <span className="text-sm font-medium">Business Type:</span>
-                  {isEditing ? (
-                    <select
-                      value={editForm.business_type || ''}
-                      onChange={(e) => handleInputChange('business_type', e.target.value)}
-                      className="ml-2 px-2 py-1 border rounded text-sm w-full max-w-xs"
-                    >
-                      <option value="">Select Business Type</option>
-                      <option value="retailer">Retailer</option>
-                      <option value="distributor">Distributor</option>
-                      <option value="manufacturer">Manufacturer</option>
-                      <option value="trader">Trader</option>
-                      <option value="service_provider">Service Provider</option>
-                    </select>
-                  ) : (
-                    <span className="text-sm text-muted-foreground ml-2 capitalize">
-                      {companyProfile.business_type || 'N/A'}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <span className="text-sm font-medium">Brand Name:</span>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editForm.brand_name || ''}
-                      onChange={(e) => handleInputChange('brand_name', e.target.value)}
-                      className="ml-2 px-2 py-1 border rounded text-sm w-full max-w-xs"
-                    />
-                  ) : (
-                    <span className="text-sm text-muted-foreground ml-2">
-                      {companyProfile.brand_name || 'N/A'}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <span className="text-sm font-medium">Contact Person:</span>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editForm.contact_person || ''}
-                      onChange={(e) => handleInputChange('contact_person', e.target.value)}
-                      className="ml-2 px-2 py-1 border rounded text-sm w-full max-w-xs"
-                    />
-                  ) : (
-                    <span className="text-sm text-muted-foreground ml-2">
-                      {companyProfile.contact_person || 'N/A'}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <span className="text-sm font-medium">Phone:</span>
-                  {isEditing ? (
-                    <input
-                      type="tel"
-                      value={editForm.phone || ''}
-                      onChange={(e) => handleInputChange('phone', e.target.value)}
-                      className="ml-2 px-2 py-1 border rounded text-sm w-full max-w-xs"
-                    />
-                  ) : (
-                    <span className="text-sm text-muted-foreground ml-2">
-                      {companyProfile.phone || 'N/A'}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <span className="text-sm font-medium">Secondary Phone:</span>
-                  {isEditing ? (
-                    <input
-                      type="tel"
-                      value={editForm.secondary_phone || ''}
-                      onChange={(e) => handleInputChange('secondary_phone', e.target.value)}
-                      className="ml-2 px-2 py-1 border rounded text-sm w-full max-w-xs"
-                    />
-                  ) : (
-                    <span className="text-sm text-muted-foreground ml-2">
-                      {companyProfile.secondary_phone || 'N/A'}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div>
-                  <span className="text-sm font-medium">Email:</span>
-                  {isEditing ? (
-                    <input
-                      type="email"
-                      value={editForm.email || ''}
-                      onChange={(e) => handleInputChange('email', e.target.value)}
-                      className="ml-2 px-2 py-1 border rounded text-sm w-full max-w-xs"
-                    />
-                  ) : (
-                    <span className="text-sm text-muted-foreground ml-2">
-                      {companyProfile.email || 'N/A'}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <span className="text-sm font-medium">Address:</span>
-                  {isEditing ? (
-                    <textarea
-                      value={editForm.address || ''}
-                      onChange={(e) => handleInputChange('address', e.target.value)}
-                      className="ml-2 px-2 py-1 border rounded text-sm w-full max-w-xs"
-                      rows={2}
-                    />
-                  ) : (
-                    <span className="text-sm text-muted-foreground ml-2">
-                      {companyProfile.address || 'N/A'}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <span className="text-sm font-medium">City:</span>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editForm.city || ''}
-                      onChange={(e) => handleInputChange('city', e.target.value)}
-                      className="ml-2 px-2 py-1 border rounded text-sm w-full max-w-xs"
-                    />
-                  ) : (
-                    <span className="text-sm text-muted-foreground ml-2">
-                      {companyProfile.city || 'N/A'}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <span className="text-sm font-medium">State:</span>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editForm.state || ''}
-                      onChange={(e) => handleInputChange('state', e.target.value)}
-                      className="ml-2 px-2 py-1 border rounded text-sm w-full max-w-xs"
-                    />
-                  ) : (
-                    <span className="text-sm text-muted-foreground ml-2">
-                      {companyProfile.state || 'N/A'}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <span className="text-sm font-medium">Pincode:</span>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editForm.pincode || ''}
-                      onChange={(e) => handleInputChange('pincode', e.target.value)}
-                      className="ml-2 px-2 py-1 border rounded text-sm w-full max-w-xs"
-                    />
-                  ) : (
-                    <span className="text-sm text-muted-foreground ml-2">
-                      {companyProfile.pincode || 'N/A'}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <span className="text-sm font-medium">GST Number:</span>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editForm.gst_number || ''}
-                      onChange={(e) => handleInputChange('gst_number', e.target.value)}
-                      className="ml-2 px-2 py-1 border rounded text-sm w-full max-w-xs"
-                    />
-                  ) : (
-                    <span className="text-sm text-muted-foreground ml-2">
-                      {companyProfile.gst_number || 'N/A'}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <span className="text-sm font-medium">Registration Number:</span>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editForm.registration_number || ''}
-                      onChange={(e) => handleInputChange('registration_number', e.target.value)}
-                      className="ml-2 px-2 py-1 border rounded text-sm w-full max-w-xs"
-                    />
-                  ) : (
-                    <span className="text-sm text-muted-foreground ml-2">
-                      {companyProfile.registration_number || 'N/A'}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <span className="text-sm font-medium">Status:</span>
-                  <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                    companyProfile.status === 'active' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {companyProfile.status?.toUpperCase() || 'N/A'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-4">
-              <p className="text-sm text-muted-foreground">Loading company profile...</p>
-            </div>
-          )}
-          
-          {isEditing && (
-            <div className="flex gap-2 mt-6 pt-4 border-t">
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
-              <button
-                onClick={handleCancel}
-                disabled={saving}
-                className="px-4 py-2 text-sm bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

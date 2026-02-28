@@ -44,8 +44,8 @@ const OrganisationProducts = () => {
     try {
       setLoading(true);
       const [productsRes, brandsRes] = await Promise.all([
-        api.get('/org-admin/products'),
-        api.get('/org-admin/brands')
+        api.get('/products'),
+        api.get('/brands')
       ]);
       setProducts(productsRes.data);
       setBrands(brandsRes.data);
@@ -64,15 +64,15 @@ const OrganisationProducts = () => {
         'application/vnd.ms-excel',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       ];
-      
-      if (!validTypes.includes(file.type) && 
-          !file.name.endsWith('.csv') && 
-          !file.name.endsWith('.xlsx') && 
-          !file.name.endsWith('.xls')) {
+
+      if (!validTypes.includes(file.type) &&
+        !file.name.endsWith('.csv') &&
+        !file.name.endsWith('.xlsx') &&
+        !file.name.endsWith('.xls')) {
         alert('Please select a CSV or Excel file');
         return;
       }
-      
+
       setUploadFile(file);
       setUploadResult(null);
     }
@@ -94,20 +94,20 @@ const OrganisationProducts = () => {
         formData.append('brand_name', brandName.trim());
       }
 
-      const response = await api.post('/org-admin/products/import/upload', formData, {
+      const response = await api.post('/products/upload-csv', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       });
 
       setUploadResult(response.data);
-      
+
       // Refresh products list
       await fetchData();
-      
+
       // Show success message
       alert(response.data.message);
-      
+
       // Reset form if successful
       if (response.data.results.imported > 0) {
         setUploadFile(null);
@@ -125,10 +125,10 @@ const OrganisationProducts = () => {
 
   const downloadTemplate = async (type) => {
     try {
-      const response = await api.get(`/org-admin/products/import/template/${type}`, {
+      const response = await api.get(`/products/import/template/${type}`, {
         responseType: 'blob'
       });
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -150,13 +150,13 @@ const OrganisationProducts = () => {
         brand_id: parseInt(formData.brand_id),
         organisation_id: 1 // Will be set by backend from JWT
       };
-      
+
       if (editingProduct) {
-        await api.put(`/org-admin/products/${editingProduct.id}`, submitData);
+        await api.put(`/products/${editingProduct.id}`, submitData);
       } else {
-        await api.post('/org-admin/products', submitData);
+        await api.post('/products', submitData);
       }
-      
+
       setShowAddModal(false);
       setEditingProduct(null);
       resetForm();
@@ -204,9 +204,9 @@ const OrganisationProducts = () => {
 
   const handleDelete = async (productId) => {
     if (!window.confirm('Are you sure you want to delete this product?')) return;
-    
+
     try {
-      await api.delete(`/org-admin/products/${productId}`);
+      await api.delete(`/products/${productId}`);
       fetchData();
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to delete product');
@@ -281,7 +281,7 @@ const OrganisationProducts = () => {
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <select
             value={filterBrand}
@@ -293,7 +293,7 @@ const OrganisationProducts = () => {
               <option key={brand.id} value={brand.id}>{brand.name}</option>
             ))}
           </select>
-          
+
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
@@ -304,7 +304,7 @@ const OrganisationProducts = () => {
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
-          
+
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
@@ -327,8 +327,8 @@ const OrganisationProducts = () => {
           <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-xl font-bold text-gray-900 mb-2">No Products Found</h3>
           <p className="text-gray-600 mb-6">
-            {searchTerm || filterBrand || filterCategory || filterStatus 
-              ? 'Try adjusting your filters' 
+            {searchTerm || filterBrand || filterCategory || filterStatus
+              ? 'Try adjusting your filters'
               : 'Get started by adding your first product'}
           </p>
         </div>
@@ -339,6 +339,9 @@ const OrganisationProducts = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Product
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Company
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Brand
@@ -355,50 +358,56 @@ const OrganisationProducts = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredProducts.map((product) => {
-                const brand = brands.find(b => b.id === product.brand_id);
-                return (
-                  <tr key={product.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                      {product.sub_category && (
-                        <div className="text-sm text-gray-500">{product.sub_category}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {brand?.name || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {product.category}
-                    </td>
-                    <td className="px-6 py-4">
-                      {product.is_active ? (
-                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                          Active
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                          Inactive
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm font-medium space-x-2">
-                      <button
-                        onClick={() => handleEdit(product)}
-                        className="text-indigo-600 hover:text-indigo-900"
-                      >
-                        <Edit2 className="h-4 w-4 inline" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(product.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <Trash2 className="h-4 w-4 inline" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+              {filteredProducts.map((product) => (
+                <tr key={product.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4">
+                    <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                    {product.sub_category && (
+                      <div className="text-sm text-gray-500">{product.sub_category}</div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {product.company_name ? (
+                      <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-xs font-medium">
+                        {product.company_name}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 italic">Organisation</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {product.brand_name || 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {product.category}
+                  </td>
+                  <td className="px-6 py-4">
+                    {product.is_active ? (
+                      <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                        Active
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                        Inactive
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-right text-sm font-medium space-x-2">
+                    <button
+                      onClick={() => handleEdit(product)}
+                      className="text-indigo-600 hover:text-indigo-900"
+                    >
+                      <Edit2 className="h-4 w-4 inline" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(product.id)}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      <Trash2 className="h-4 w-4 inline" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -427,7 +436,7 @@ const OrganisationProducts = () => {
                     ))}
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Product Name *</label>
                   <input
@@ -451,7 +460,7 @@ const OrganisationProducts = () => {
                     required
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Sub Category</label>
                   <input
@@ -484,7 +493,7 @@ const OrganisationProducts = () => {
                     placeholder="e.g., Cotton, Wheat"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Target Problems</label>
                   <input
@@ -506,7 +515,7 @@ const OrganisationProducts = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Price Range</label>
                   <input
@@ -701,9 +710,8 @@ const OrganisationProducts = () => {
 
               {/* Upload Result */}
               {uploadResult && (
-                <div className={`p-4 rounded-lg ${
-                  uploadResult.results.imported > 0 ? 'bg-green-50 border border-green-200' : 'bg-yellow-50 border border-yellow-200'
-                }`}>
+                <div className={`p-4 rounded-lg ${uploadResult.results.imported > 0 ? 'bg-green-50 border border-green-200' : 'bg-yellow-50 border border-yellow-200'
+                  }`}>
                   <h3 className="font-semibold text-gray-900 mb-2">Upload Results:</h3>
                   <div className="space-y-1 text-sm">
                     <p className="text-green-700">✅ Imported: {uploadResult.results.imported} products</p>

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Optional, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import logging
@@ -33,6 +33,13 @@ class UserRegister(BaseModel):
     organisation_id: Optional[int] = None
     company_name: Optional[str] = None
 
+    @field_validator('organisation_id', 'organisation_name', 'company_name', mode='before')
+    @classmethod
+    def empty_string_to_none(cls, v: Any) -> Any:
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
+
 class UserLogin(BaseModel):
     username: str
     password: str
@@ -49,6 +56,8 @@ class UserProfile(BaseModel):
     role: str
     is_active: bool
     created_at: str
+    company_id: Optional[int] = None
+    organisation_id: Optional[int] = None
 
 @router.get("/organisations")
 async def get_active_organisations(db: AsyncSession = Depends(get_db)):
@@ -66,7 +75,7 @@ async def get_active_organisations(db: AsyncSession = Depends(get_db)):
             org_list.append({
                 "id": org.id,
                 "name": org.name,
-                "domain": org.domain
+                "email": org.email
             })
         
         return {
@@ -100,22 +109,17 @@ async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
         role=user.role,
         is_active=True
     )
-    
+    print(new_user, ".............................................")
     db.add(new_user)
     await db.flush()  # Get the user ID without committing
     
     # Create organisation if role is organisation
     if user.role == "organisation" and user.organisation_name:
-        # Generate domain from organisation name
-        domain = user.organisation_name.lower().replace(" ", "").replace(".", "") + ".kisanvani.ai"
-        
         new_organisation = Organisation(
             name=user.organisation_name,
-            domain=domain,
+            email=user.email,  # Use email instead of domain
             status="pending",  # Set as pending for approval
-            plan_type="basic",
-            preferred_languages="hi",
-            greeting_message=f"Namaste, aap {user.organisation_name} Kisan Sahayak AI se baat kar rahe hain"
+            plan_type="basic"
         )
         
         db.add(new_organisation)

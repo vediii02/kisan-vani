@@ -1,22 +1,40 @@
-// Organisation Profile Management
 import React, { useState, useEffect } from 'react';
-import { Building2, Phone, Mail, Globe, Save, AlertCircle, CheckCircle, X } from 'lucide-react';
-import api from '../api/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { User, Edit2, Save, X, Building, Phone, Mail, MapPin, Globe, FileText, Smartphone } from 'lucide-react';
+import { toast } from 'sonner';
+import api from '@/api/api';
 
-const OrganisationProfile = () => {
-  const [profile, setProfile] = useState(null);
+export default function OrganisationProfile() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+
   const [formData, setFormData] = useState({
     name: '',
-    domain: '',
-    phone: '',
     email: '',
-    description: '',
-    is_active: true
+    phone_numbers: '',
+    secondary_phone: '',
+    address: '',
+    city: '',
+    state: '',
+    pincode: '',
+    website_link: '',
+    description: ''
   });
+
+  // Keep originalData for cancel functionality, but update its structure
+  const [originalData, setOriginalData] = useState({});
+  // Keep status and plan_type separate as they are not editable via formData
+  const [status, setStatus] = useState('active');
+  const [planType, setPlanType] = useState('basic');
+
 
   useEffect(() => {
     fetchProfile();
@@ -25,281 +43,375 @@ const OrganisationProfile = () => {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/org-admin/profile');
-      setProfile(response.data);
-      setFormData({
-        name: response.data.name || '',
-        domain: response.data.domain || '',
-        phone: response.data.phone || '',
-        email: response.data.email || '',
-        description: response.data.description || '',
-        is_active: response.data.is_active
-      });
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to load profile');
+      const response = await api.get('/organisations/profile');
+      const data = response.data;
+
+      const newFormData = {
+        name: data.name || '',
+        email: data.email || '',
+        phone_numbers: data.phone_numbers || '',
+        secondary_phone: data.secondary_phone || '',
+        address: data.address || '',
+        city: data.city || '',
+        state: data.state || '',
+        pincode: data.pincode || '',
+        website_link: data.website_link || '',
+        description: data.description || ''
+      };
+
+      setFormData(newFormData);
+      setOriginalData(newFormData); // Store for cancel
+      setStatus(data.status || 'active');
+      setPlanType(data.plan_type || 'basic');
+    } catch (error) {
+      console.error('Error fetching organisation profile:', error);
+      toast.error(error.response?.data?.detail || 'Failed to load organisation profile');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleEdit = () => {
+    setEditing(true);
+  };
+
+  const handleCancel = () => {
+    setFormData(originalData); // Revert to original data
+    setEditing(false);
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSave = async () => {
     try {
       setSaving(true);
-      setError('');
-      setSuccess('');
-      
-      const response = await api.put('/org-admin/profile', formData);
-      setProfile(response.data);
-      setSuccess('Profile updated successfully!');
-      
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to update profile');
+
+      const updateData = {
+        name: formData.name,
+        email: formData.email,
+        phone_numbers: formData.phone_numbers,
+        secondary_phone: formData.secondary_phone,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        pincode: formData.pincode,
+        website_link: formData.website_link,
+        description: formData.description
+      };
+
+      const response = await api.put('/organisations/profile', updateData);
+      const updatedProfile = response.data;
+
+      const savedData = {
+        name: updatedProfile.name || '',
+        email: updatedProfile.email || '',
+        phone_numbers: updatedProfile.phone_numbers || '',
+        secondary_phone: updatedProfile.secondary_phone || '',
+        address: updatedProfile.address || '',
+        city: updatedProfile.city || '',
+        state: updatedProfile.state || '',
+        pincode: updatedProfile.pincode || '',
+        website_link: updatedProfile.website_link || '',
+        description: updatedProfile.description || ''
+      };
+
+      setFormData(savedData);
+      setOriginalData(savedData);
+      setEditing(false);
+      toast.success('Organisation profile updated successfully!');
+    } catch (error) {
+      console.error('Error updating organisation profile:', error);
+      toast.error(error.response?.data?.detail || 'Failed to update organisation profile');
     } finally {
       setSaving(false);
     }
   };
 
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading profile...</p>
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900 mx-auto"></div>
+            <p className="mt-4 text-muted-foreground">Loading profile...</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Organisation Profile</h1>
-        <p className="text-gray-600 mt-1">Manage your organisation information</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+            Organisation Profile
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Manage your organisation information and public details
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {editing ? (
+            <>
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+                disabled={saving}
+                className="flex items-center gap-2"
+              >
+                <X className="h-4 w-4" />
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                className="bg-slate-900 hover:bg-slate-800 flex items-center gap-2 text-white"
+              >
+                <Save className="h-4 w-4" />
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </>
+          ) : (
+            <Button
+              onClick={handleEdit}
+              className="bg-slate-900 hover:bg-slate-800 flex items-center gap-2 text-white"
+            >
+              <Edit2 className="h-4 w-4" />
+              Edit Profile
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Alerts */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
-          <AlertCircle className="h-5 w-5 text-red-600 mr-3 mt-0.5" />
-          <div className="flex-1">
-            <h3 className="text-red-800 font-medium">Error</h3>
-            <p className="text-red-600 text-sm mt-1">{error}</p>
-          </div>
-          <button onClick={() => setError('')} className="text-red-600 hover:text-red-700">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-      )}
-
-      {success && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start">
-          <CheckCircle className="h-5 w-5 text-green-600 mr-3 mt-0.5" />
-          <div className="flex-1">
-            <h3 className="text-green-800 font-medium">Success</h3>
-            <p className="text-green-600 text-sm mt-1">{success}</p>
-          </div>
-          <button onClick={() => setSuccess('')} className="text-green-600 hover:text-green-700">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-      )}
-
-      {/* Profile Information Card */}
-      {profile && (
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="bg-white bg-opacity-20 p-4 rounded-lg">
-              <Building2 className="h-8 w-8" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold">{profile.name}</h2>
-              <div className="flex items-center gap-2 mt-1">
-                {profile.is_enterprise && (
-                  <span className="px-2 py-1 bg-yellow-400 text-yellow-900 text-xs font-bold rounded">
-                    ENTERPRISE
-                  </span>
-                )}
-                <span className={`px-2 py-1 text-xs font-semibold rounded ${
-                  profile.is_active 
-                    ? 'bg-green-400 text-green-900' 
-                    : 'bg-red-400 text-red-900'
-                }`}>
-                  {profile.is_active ? 'ACTIVE' : 'INACTIVE'}
-                </span>
+      {/* Hero Status Card */}
+      <Card className="mb-6 overflow-hidden border border-slate-200 shadow-sm">
+        <div className="bg-slate-50 p-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="p-4 bg-white rounded-2xl shadow-sm border border-slate-100">
+                <Building className="h-10 w-10 text-slate-600" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">{formData.name || 'Organisation Name'}</h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge className="bg-slate-200 text-slate-700 hover:bg-slate-300 border-none">
+                    {planType?.toUpperCase() || 'BASIC'} PLAN
+                  </Badge>
+                  <Badge className={`${status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} border-none`}>
+                    {status?.toUpperCase()}
+                  </Badge>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-            {profile.domain && (
-              <div className="flex items-center gap-2">
-                <Globe className="h-4 w-4" />
-                <span className="text-sm">{profile.domain}</span>
-              </div>
-            )}
-            {profile.phone && (
-              <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                <span className="text-sm">{profile.phone}</span>
-              </div>
-            )}
-            {profile.email && (
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                <span className="text-sm">{profile.email}</span>
-              </div>
-            )}
           </div>
         </div>
-      )}
+      </Card>
 
-      {/* Edit Form */}
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">Edit Profile Information</h2>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Organisation Name *
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Main Content Grid */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Basic Information */}
+        <Card className="shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-slate-900">
+              <User className="h-5 w-5 text-slate-500" />
+              Basic Information
+            </CardTitle>
+            <CardDescription>
+              Organisation identification and branding
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Domain
-              </label>
-              <div className="relative">
-                <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={formData.domain}
-                  onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="example.com"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Phone Number
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="+91 1234567890"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="contact@example.com"
+              <Label htmlFor="name">Organisation Name</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                disabled={!editing}
+                className="mt-1 focus-visible:ring-slate-400"
               />
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Description
-            </label>
-            <textarea
+            <div>
+              <Label htmlFor="email">Email Address</Label>
+              <div className="relative mt-1">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  disabled={!editing}
+                  className="pl-10 focus-visible:ring-slate-400"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="website_link">Website URL</Label>
+              <div className="relative mt-1">
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  id="website_link"
+                  value={formData.website_link}
+                  onChange={(e) => handleInputChange('website_link', e.target.value)}
+                  disabled={!editing}
+                  className="pl-10 focus-visible:ring-slate-400"
+                  placeholder="https://example.com"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Contact Information */}
+        <Card className="shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-slate-900">
+              <Smartphone className="h-5 w-5 text-slate-500" />
+              Contact Details
+            </CardTitle>
+            <CardDescription>
+              Registered phone contacts for call routing
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <Label htmlFor="phone_numbers">Organisation Phone Number</Label>
+                <div className="relative mt-1">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="phone_numbers"
+                    value={formData.phone_numbers}
+                    onChange={(e) => handleInputChange('phone_numbers', e.target.value)}
+                    disabled={!editing}
+                    className="pl-10 focus-visible:ring-slate-400"
+                    placeholder="+91 83109 01234"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="secondary_phone">Secondary Phone Number</Label>
+                <div className="relative mt-1">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="secondary_phone"
+                    value={formData.secondary_phone}
+                    onChange={(e) => handleInputChange('secondary_phone', e.target.value)}
+                    disabled={!editing}
+                    className="pl-10 focus-visible:ring-slate-400"
+                    placeholder="+91 98765 43210"
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Address and Location */}
+        <Card className="shadow-md md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-slate-900">
+              <MapPin className="h-5 w-5 text-slate-500" />
+              Location Information
+            </CardTitle>
+            <CardDescription>
+              Physical office address and regional details
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="address">Full Address</Label>
+              <Textarea
+                id="address"
+                value={formData.address}
+                onChange={(e) => handleInputChange('address', e.target.value)}
+                disabled={!editing}
+                className="mt-1 min-h-[80px] focus-visible:ring-slate-400"
+                placeholder="123 Business Park, Sector 45..."
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  placeholder="indore"
+                  value={formData.city}
+                  onChange={(e) => handleInputChange('city', e.target.value)}
+                  disabled={!editing}
+                  className="mt-1 focus-visible:ring-slate-400"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="state">State</Label>
+                <Input
+                  id="state"
+                  placeholder="Madhya Pradesh"
+                  value={formData.state}
+                  onChange={(e) => handleInputChange('state', e.target.value)}
+                  disabled={!editing}
+                  className="mt-1 focus-visible:ring-slate-400"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="pincode">Pincode</Label>
+                <Input
+                  id="pincode"
+                  placeholder="452001"
+                  value={formData.pincode}
+                  onChange={(e) => handleInputChange('pincode', e.target.value)}
+                  disabled={!editing}
+                  className="mt-1 focus-visible:ring-slate-400"
+                  maxLength={6}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Description */}
+        <Card className="shadow-md md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-slate-900">
+              <FileText className="h-5 w-5 text-slate-500" />
+              Organisation Bio
+            </CardTitle>
+            <CardDescription>
+              Brief description for public profile
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              id="description"
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={4}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="Tell us about your organisation..."
+              onChange={(e) => handleInputChange('description', e.target.value)}
+              disabled={!editing}
+              className="mt-1 min-h-[120px] focus-visible:ring-slate-400"
+              placeholder="Tell us about your mission, services, and achievements..."
             />
-          </div>
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="is_active"
-              checked={formData.is_active}
-              onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-            />
-            <label htmlFor="is_active" className="ml-2 block text-sm text-gray-700">
-              Organisation is active
-            </label>
-          </div>
-
-          <div className="flex gap-4 pt-6 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={fetchProfile}
-              disabled={saving}
-              className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium disabled:opacity-50"
-            >
-              Reset
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium disabled:opacity-50"
-            >
-              {saving ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-5 w-5" />
-                  Save Changes
-                </>
-              )}
-            </button>
-          </div>
-        </form>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Additional Info */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <AlertCircle className="h-5 w-5 text-blue-600" />
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-blue-800">Important Information</h3>
-            <div className="mt-2 text-sm text-blue-700">
-              <ul className="list-disc list-inside space-y-1">
-                <li>Changes to your organisation profile may take a few moments to reflect</li>
-                <li>Contact your super admin if you need to modify enterprise status</li>
-                <li>Ensure your contact information is always up to date</li>
-              </ul>
-            </div>
-          </div>
-        </div>
+      {/* Footer Info */}
+      <div className="mt-8 text-center text-sm text-muted-foreground bg-slate-50 rounded-lg p-4 border border-dashed border-slate-200">
+        <p>Tip: Ensure your contact details and address are accurate so customers can reach you easily.</p>
+        <p className="mt-1 italic">Enterprise features can be requested through support.</p>
       </div>
     </div>
   );
-};
-
-export default OrganisationProfile;
+}

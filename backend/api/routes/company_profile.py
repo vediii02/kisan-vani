@@ -4,14 +4,17 @@ from sqlalchemy import select
 from core.auth import get_current_user
 from db.session import get_db
 from db.models.company import Company
-from pydantic import BaseModel
-from typing import Optional
+from db.models.brand import Brand
+from db.models.organisation import Organisation
+from pydantic import BaseModel, Field
+from typing import Optional, List
 
 router = APIRouter()
 
 class CompanyProfileResponse(BaseModel):
     id: int
     name: str
+    organisation_name: Optional[str] = None
     business_type: Optional[str] = None
     brand_name: Optional[str] = None
     contact_person: Optional[str] = None
@@ -22,6 +25,8 @@ class CompanyProfileResponse(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
     pincode: Optional[str] = None
+    website_link: Optional[str] = None
+    description: Optional[str] = None
     gst_number: Optional[str] = None
     registration_number: Optional[str] = None
     status: str
@@ -40,6 +45,8 @@ class CompanyProfileUpdate(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
     pincode: Optional[str] = None
+    website_link: Optional[str] = None
+    description: Optional[str] = None
     gst_number: Optional[str] = None
     registration_number: Optional[str] = None
     notes: Optional[str] = None
@@ -63,9 +70,18 @@ async def get_company_profile(
     if not company:
         raise HTTPException(status_code=404, detail="Company not found.")
     
+    # Get organisation name
+    org_name = None
+    if company.organisation_id:
+        org_result = await db.execute(select(Organisation).where(Organisation.id == company.organisation_id))
+        org = org_result.scalar_one_or_none()
+        if org:
+            org_name = org.name
+    
     return CompanyProfileResponse(
         id=company.id,
         name=company.name,
+        organisation_name=org_name,
         business_type=company.business_type,
         brand_name=company.brand_name,
         contact_person=company.contact_person,
@@ -76,6 +92,8 @@ async def get_company_profile(
         city=company.city,
         state=company.state,
         pincode=company.pincode,
+        website_link=company.website_link,
+        description=company.description,
         gst_number=company.gst_number,
         registration_number=company.registration_number,
         status=company.status,
@@ -124,6 +142,8 @@ async def update_company_profile(
         city=company.city,
         state=company.state,
         pincode=company.pincode,
+        website_link=company.website_link,
+        description=company.description,
         gst_number=company.gst_number,
         registration_number=company.registration_number,
         status=company.status,

@@ -13,14 +13,8 @@ class Organisation(Base):
     email = Column(String(200), unique=True, nullable=True)
     status = Column(String(50), default="active", nullable=False)  # active, inactive, suspended
     plan_type = Column(String(50), default="basic", nullable=False)  # basic, professional, enterprise
-    phone_numbers = Column(Text, nullable=True)  # DEPRECATED - Use phone_numbers relationship instead
-    
-    # Primary phone number - THE number farmers will call (e.g., Exotel number)
-    # Organisation can manage this from their dashboard
-    # Unique constraint ensures one number = one organisation
-    primary_phone = Column(String(20), unique=True, nullable=True, index=True)
-    
-    # Secondary phone number
+    # Contact information
+    phone_numbers = Column(String(20), nullable=True) 
     secondary_phone = Column(String(20), nullable=True)
     
     # Address fields
@@ -28,6 +22,10 @@ class Organisation(Base):
     city = Column(String(100), nullable=True)
     state = Column(String(100), nullable=True)
     pincode = Column(String(10), nullable=True)
+    
+    # Additional fields
+    website_link = Column(String(500), nullable=True)
+    description = Column(Text, nullable=True)
     
     created_at = Column(
         DateTime(timezone=True),

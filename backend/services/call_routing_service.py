@@ -6,12 +6,13 @@ Routes incoming calls based on dialed phone number (to_phone).
 """
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, and_
 from db.models.call_session import CallSession, CallStatus
 from db.models.organisation import Organisation
 from db.models.farmer import Farmer
 from services.phone_number_service import phone_number_service
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
+import json
 import logging
 import secrets
 from datetime import datetime, timezone
@@ -65,14 +66,20 @@ class CallRoutingService:
         """
         logger.info(f"Incoming call: from={from_phone}, to={to_phone}")
         
-        # STEP 1: Identify organisation from to_phone (primary_phone lookup)
-        # Look up organisation by primary_phone field directly
-        org_result = await db.execute(
-            select(Organisation).where(
-                Organisation.primary_phone == to_phone,
-                Organisation.status == "active"
-            )
+        # STEP 1: Identify organisation from to_phone (phone_number lookup)
+        # Use PhoneNumberService to find org ID and record
+        org_id, phone_record, error = await phone_number_service.find_organisation_by_phone(
+            db=db,
+            phone_number=to_phone,
+            require_active=True
         )
+        
+        if not org_id:
+            logger.warning(f"Call rejected: {error}")
+            return None, None, "यह नंबर सेवा में नहीं है। कृपया सही नंबर डायल करें।"
+
+        # Fetch organisation details
+        org_result = await db.execute(select(Organisation).where(Organisation.id == org_id))
         organisation = org_result.scalar_one_or_none()
         
         if not organisation:
@@ -239,7 +246,7 @@ class CallRoutingService:
         # Fetch phone record
         org_id, phone_record, _ = await phone_number_service.find_organisation_by_phone(
             db=db,
-            phone_number=call_session.dialed_number,
+            phone_number=call_session.to_phone, # Changed from call_session.dialed_number to call_session.to_phone
             require_active=False  # Get record even if inactive
         )
         

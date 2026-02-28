@@ -40,6 +40,14 @@ class DashboardKPIs(BaseModel):
     total_kb_entries: int
 
 
+class DashboardStats(BaseModel):
+    total_users: int
+    total_admins: int
+    total_company_users: int
+    active_users: int
+    inactive_users: int
+
+
 class OrganisationStats(BaseModel):
     id: int
     name: str
@@ -49,7 +57,8 @@ class OrganisationStats(BaseModel):
     product_count: int
     call_count: int
     phone_count: int
-    phone_numbers: List[str]
+    phone_numbers: Optional[str]
+    secondary_phone: Optional[str] = None
     created_at: str
 
 
@@ -248,11 +257,56 @@ async def get_dashboard_kpis(
     }
 
 
+@router.get("/dashboard/stats", response_model=DashboardStats)
+async def get_dashboard_stats(
+    current_user: dict = Depends(get_current_super_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get platform-level user statistics for Super Admin Dashboard"""
+    
+    # Total users
+    total_users_result = await db.execute(select(func.count(User.id)))
+    total_users = total_users_result.scalar() or 0
+    
+    # Total admins (organisation role)
+    total_admins_result = await db.execute(
+        select(func.count(User.id)).where(User.role == 'organisation')
+    )
+    total_admins = total_admins_result.scalar() or 0
+    
+    # Total company users
+    total_company_users_result = await db.execute(
+        select(func.count(User.id)).where(User.role == 'company')
+    )
+    total_company_users = total_company_users_result.scalar() or 0
+    
+    # Active users
+    active_users_result = await db.execute(
+        select(func.count(User.id)).where(User.is_active == True)
+    )
+    active_users = active_users_result.scalar() or 0
+    
+    # Inactive users
+    inactive_users_result = await db.execute(
+        select(func.count(User.id)).where(User.is_active == False)
+    )
+    inactive_users = inactive_users_result.scalar() or 0
+    
+    return {
+        "total_users": total_users,
+        "total_admins": total_admins,
+        "total_company_users": total_company_users,
+        "active_users": active_users,
+        "inactive_users": inactive_users
+    }
+
+
 # ===== Organisation Management =====
 
 class OrganisationCreate(BaseModel):
     name: str
-    primary_phone: Optional[str] = None  # Phone number farmers will call
+    phone_numbers: Optional[str] = None
+    secondary_phone: Optional[str] = None
     description: Optional[str] = None
     website_url: Optional[str] = None
     auto_import_products: bool = False
@@ -283,7 +337,8 @@ async def create_organisation(
     # Create organisation
     new_org = Organisation(
         name=org_data.name,
-        primary_phone=org_data.primary_phone,  # Store the phone number
+        phone_numbers=org_data.phone_numbers,
+        secondary_phone=org_data.secondary_phone,
         status='active'
     )
     
@@ -470,7 +525,8 @@ async def get_organisations_stats(
             "product_count": total_products,
             "call_count": total_calls,
             "phone_count": len(phones),
-            "phone_numbers": phones,
+            "phone_numbers": org.phone_numbers,
+            "secondary_phone": org.secondary_phone,
             "created_at": org.created_at.isoformat() if org.created_at else ""
         })
     

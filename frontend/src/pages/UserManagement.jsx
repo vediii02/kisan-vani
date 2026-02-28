@@ -4,6 +4,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { getErrorMessage } from '@/lib/utils';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -31,7 +33,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Loader2, Edit, Trash2, Key, UserCheck, UserX } from 'lucide-react';
-import { toast } from 'sonner';
 import { format } from 'date-fns';
 
 export default function UserManagement() {
@@ -93,7 +94,7 @@ export default function UserManagement() {
       fetchUsers();
     } catch (error) {
       console.error('Error creating user:', error);
-      toast.error(error.response?.data?.detail || 'Failed to create user');
+      toast.error(getErrorMessage(error));
     }
   };
 
@@ -106,7 +107,7 @@ export default function UserManagement() {
       fetchUsers();
     } catch (error) {
       console.error('Error updating user:', error);
-      toast.error(error.response?.data?.detail || 'Failed to update user');
+      toast.error(getErrorMessage(error));
     }
   };
 
@@ -118,7 +119,7 @@ export default function UserManagement() {
       fetchUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
-      toast.error(error.response?.data?.detail || 'Failed to delete user');
+      toast.error(getErrorMessage(error));
     }
   };
 
@@ -130,7 +131,7 @@ export default function UserManagement() {
       setResetPassword('');
     } catch (error) {
       console.error('Error resetting password:', error);
-      toast.error(error.response?.data?.detail || 'Failed to reset password');
+      toast.error(getErrorMessage(error));
     }
   };
 

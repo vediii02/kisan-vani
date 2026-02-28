@@ -44,7 +44,7 @@ const SuperAdminPlatformDashboard = () => {
     try {
       if (!silent) setLoading(true);
       else setRefreshing(true);
-      
+
       const response = await api.get('/superadmin/dashboard/kpis');
       setKpis(response.data);
     } catch (error) {
@@ -86,7 +86,16 @@ const SuperAdminPlatformDashboard = () => {
       action: () => navigate('/superadmin/organisations-platform')
     },
     {
-      title: 'Companies / Brands',
+      title: 'Companies',
+      value: kpis?.total_brands || 0,
+      subtitle: `Across all orgs`,
+      icon: Building2,
+      color: 'bg-green-600',
+      gradient: 'from-green-500 to-emerald-700',
+      action: () => navigate('/superadmin/companies')
+    },
+    {
+      title: 'Brands',
       value: kpis?.total_brands || 0,
       subtitle: `Across all orgs`,
       icon: Package,
@@ -104,15 +113,6 @@ const SuperAdminPlatformDashboard = () => {
       action: null
     },
     {
-      title: 'Calls Today',
-      value: kpis?.total_calls_today || 0,
-      subtitle: `${kpis?.total_calls_month || 0} This Month`,
-      icon: PhoneCall,
-      color: 'bg-indigo-500',
-      gradient: 'from-indigo-400 to-indigo-600',
-      action: () => navigate('/superadmin/call-analytics')
-    },
-    {
       title: 'Live Calls',
       value: kpis?.live_calls_count || 0,
       subtitle: 'Active Right Now',
@@ -123,6 +123,15 @@ const SuperAdminPlatformDashboard = () => {
       pulse: (kpis?.live_calls_count || 0) > 0
     },
     {
+      title: 'Calls Today',
+      value: kpis?.total_calls_today || 0,
+      subtitle: `${kpis?.total_calls_month || 0} This Month`,
+      icon: PhoneCall,
+      color: 'bg-indigo-500',
+      gradient: 'from-indigo-400 to-indigo-600',
+      action: () => navigate('/superadmin/call-analytics')
+    },
+    {
       title: 'Escalated Cases',
       value: kpis?.escalated_cases_count || 0,
       subtitle: 'Pending Resolution',
@@ -130,15 +139,6 @@ const SuperAdminPlatformDashboard = () => {
       color: 'bg-yellow-500',
       gradient: 'from-yellow-400 to-yellow-600',
       action: () => navigate('/superadmin/escalations')
-    },
-    {
-      title: 'Avg AI Confidence',
-      value: `${kpis?.avg_ai_confidence || 0}%`,
-      subtitle: 'Platform-wide',
-      icon: TrendingUp,
-      color: 'bg-teal-500',
-      gradient: 'from-teal-400 to-teal-600',
-      action: null
     },
     {
       title: 'Total Users',
@@ -175,7 +175,7 @@ const SuperAdminPlatformDashboard = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="flex gap-3">
           {refreshing && (
             <div className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg">
@@ -183,13 +183,13 @@ const SuperAdminPlatformDashboard = () => {
               <span className="text-sm font-medium">Refreshing...</span>
             </div>
           )}
-          <button
+          {/* <button
             onClick={() => navigate('/superadmin/platform-settings')}
             className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 shadow-md transition-all"
           >
             <Settings className="h-4 w-4" />
             Platform Settings
-          </button>
+          </button> */}
           <button
             onClick={() => navigate('/superadmin/audit-logs')}
             className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 shadow-md transition-all"
@@ -228,9 +228,8 @@ const SuperAdminPlatformDashboard = () => {
           <div
             key={index}
             onClick={card.action}
-            className={`bg-white rounded-xl shadow-lg overflow-hidden transform transition-all duration-300 hover:scale-105 ${
-              card.action ? 'cursor-pointer hover:shadow-2xl' : ''
-            } ${card.pulse ? 'ring-4 ring-red-300 animate-pulse' : ''}`}
+            className={`bg-white rounded-xl shadow-lg overflow-hidden transform transition-all duration-300 hover:scale-105 ${card.action ? 'cursor-pointer hover:shadow-2xl' : ''
+              } ${card.pulse ? 'ring-4 ring-red-300 animate-pulse' : ''}`}
           >
             <div className={`h-2 bg-gradient-to-r ${card.gradient}`}></div>
             <div className="p-6">
@@ -261,7 +260,7 @@ const SuperAdminPlatformDashboard = () => {
           </h2>
           <span className="text-sm text-gray-500">AI connects on these numbers</span>
         </div>
-        
+
         {kpis?.active_phone_numbers === 0 ? (
           <div className="text-center py-8 bg-gray-50 rounded-lg">
             <Phone className="h-12 w-12 text-gray-300 mx-auto mb-3" />
@@ -279,11 +278,10 @@ const SuperAdminPlatformDashboard = () => {
                       <Building2 className="h-5 w-5 text-green-600" />
                       <h3 className="font-bold text-gray-900">{org.name}</h3>
                     </div>
-                    <span className={`px-2 py-1 text-xs font-semibold rounded ${
-                      org.is_active 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
+                    <span className={`px-2 py-1 text-xs font-semibold rounded ${org.is_active
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
+                      }`}>
                       {org.is_active ? 'Active' : 'Suspended'}
                     </span>
                   </div>
@@ -310,7 +308,7 @@ const SuperAdminPlatformDashboard = () => {
               ))}
           </div>
         )}
-        
+
         <div className="mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-500 rounded-lg">
           <div className="flex items-start gap-2">
             <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
@@ -324,7 +322,7 @@ const SuperAdminPlatformDashboard = () => {
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions
       <div className="bg-white rounded-xl shadow-md p-6">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Platform Management</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -351,13 +349,13 @@ const SuperAdminPlatformDashboard = () => {
           </button>
 
           <button
-            onClick={() => navigate('/superadmin/product-safety')}
+            onClick={() => navigate('/superadmin/products')}
             className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-red-500 hover:bg-red-50 transition-all"
           >
             <Shield className="h-6 w-6 text-red-600" />
             <div className="text-left">
-              <div className="font-medium text-gray-900">Product Safety</div>
-              <div className="text-xs text-gray-500">Ban products</div>
+              <div className="font-medium text-gray-900">Products</div>
+              <div className="text-xs text-gray-500">Manage products</div>
             </div>
           </button>
 
@@ -372,7 +370,7 @@ const SuperAdminPlatformDashboard = () => {
             </div>
           </button>
         </div>
-      </div>
+      </div> */}
 
       {/* System Health Warning */}
       {(kpis?.escalated_cases_count > 10 || kpis?.avg_ai_confidence < 60) && (

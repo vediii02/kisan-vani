@@ -87,14 +87,14 @@ export default function OrganisationCompanies() {
       }
 
       await api.post('/organisation/companies', submitData);
-      toast.success(createUserAccess 
+      toast.success(createUserAccess
         ? 'Company and user account created successfully! Login with email: ' + formData.email
         : 'Company created successfully');
       resetForm();
       fetchCompanies();
     } catch (error) {
       console.error('Error creating company:', error);
-      
+
       // Handle validation errors
       let errorMessage = 'Failed to create company';
       if (error.response?.data) {
@@ -103,7 +103,11 @@ export default function OrganisationCompanies() {
           errorMessage = data.detail;
         } else if (Array.isArray(data.detail)) {
           // FastAPI validation errors
-          errorMessage = data.detail.map(err => `${err.loc?.join('.')}: ${err.msg}`).join(', ');
+          errorMessage = data.detail.map(err => {
+            const location = err.loc ? (Array.isArray(err.loc) ? err.loc.join('.') : String(err.loc)) : '';
+            const message = err.msg ? String(err.msg) : 'Validation error';
+            return location ? `${location}: ${message}` : message;
+          }).join(', ');
         } else if (data.message) {
           errorMessage = data.message;
         }
@@ -130,7 +134,7 @@ export default function OrganisationCompanies() {
       fetchCompanies();
     } catch (error) {
       console.error('Error updating company:', error);
-      
+
       // Handle validation errors
       let errorMessage = 'Failed to update company';
       if (error.response?.data) {
@@ -139,7 +143,11 @@ export default function OrganisationCompanies() {
           errorMessage = data.detail;
         } else if (Array.isArray(data.detail)) {
           // FastAPI validation errors
-          errorMessage = data.detail.map(err => `${err.loc?.join('.')}: ${err.msg}`).join(', ');
+          errorMessage = data.detail.map(err => {
+            const location = err.loc ? (Array.isArray(err.loc) ? err.loc.join('.') : String(err.loc)) : '';
+            const message = err.msg ? String(err.msg) : 'Validation error';
+            return location ? `${location}: ${message}` : message;
+          }).join(', ');
         } else if (data.message) {
           errorMessage = data.message;
         }
@@ -162,7 +170,7 @@ export default function OrganisationCompanies() {
       fetchCompanies();
     } catch (error) {
       console.error('Error deleting company:', error);
-      toast.error(error.response?.data?.detail || 'Failed to delete company');
+      toast.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -285,11 +293,10 @@ export default function OrganisationCompanies() {
                         <p className="text-sm text-muted-foreground">{company.business_type}</p>
                       )}
                     </div>
-                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      company.status === 'active' 
-                        ? 'bg-green-100 text-green-700' 
+                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${company.status === 'active'
+                        ? 'bg-green-100 text-green-700'
                         : 'bg-gray-100 text-gray-700'
-                    }`}>
+                      }`}>
                       {company.status || 'active'}
                     </div>
                   </div>
@@ -339,7 +346,7 @@ export default function OrganisationCompanies() {
                     )}
                   </div>
 
-                  <div className="flex gap-4 mt-4 text-sm">
+                  {/* <div className="flex gap-4 mt-4 text-sm">
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-muted-foreground" />
                       <span>Max Company Users: <strong>{company.max_company_users || 5}</strong></span>
@@ -348,7 +355,7 @@ export default function OrganisationCompanies() {
                       <Package className="w-4 h-4 text-muted-foreground" />
                       <span>Max Products: <strong>{company.max_products || 100}</strong></span>
                     </div>
-                  </div>
+                  </div> */}
 
                   {company.created_at && (
                     <p className="text-xs text-muted-foreground mt-3">
@@ -521,8 +528,8 @@ export default function OrganisationCompanies() {
             {/* Login Access Section */}
             <div className="border-t pt-4 mt-4">
               <div className="flex items-center space-x-2 mb-4">
-                <Checkbox 
-                  id="createUserAccess" 
+                <Checkbox
+                  id="createUserAccess"
                   checked={createUserAccess}
                   onCheckedChange={setCreateUserAccess}
                 />

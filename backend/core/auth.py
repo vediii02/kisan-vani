@@ -61,6 +61,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
         "full_name": user.full_name,
         "role": user.role,
         "organisation_id": user.organisation_id,  # Include organisation_id
+        "company_id": user.company_id,  # Include company_id
         "is_active": user.is_active,
         "created_at": user.created_at.isoformat() if user.created_at else None
     }

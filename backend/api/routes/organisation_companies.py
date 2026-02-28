@@ -16,6 +16,8 @@ from db.session import get_db
 from db.models.user import User
 from db.models.company import Company
 from db.models.product import Product
+from db.models.brand import Brand
+from db.models.call_session import CallSession
 from pydantic import BaseModel, EmailStr, Field
 
 logger = logging.getLogger(__name__)
@@ -436,3 +438,51 @@ async def delete_company(
     logger.info(f"User {current_user['username']} deleted company: {company.name}")
     
     return None
+@router.get("/stats/summary")
+async def get_organisation_stats(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get summarized statistics for the organisation dashboard"""
+    org_id = await check_organisation_access(current_user, db)
+    
+    if not org_id:
+        raise HTTPException(status_code=400, detail="Organisation ID not found for user")
+
+    # Company stats
+    company_total_res = await db.execute(select(func.count(Company.id)).where(Company.organisation_id == org_id))
+    company_total = company_total_res.scalar() or 0
+    
+    company_active_res = await db.execute(select(func.count(Company.id)).where(and_(Company.organisation_id == org_id, Company.status == "active")))
+    company_active = company_active_res.scalar() or 0
+    
+    # Brand stats
+    brand_total_res = await db.execute(select(func.count(Brand.id)).where(Brand.organisation_id == org_id))
+    brand_total = brand_total_res.scalar() or 0
+    
+    brand_active_res = await db.execute(select(func.count(Brand.id)).where(and_(Brand.organisation_id == org_id, Brand.is_active == True)))
+    brand_active = brand_active_res.scalar() or 0
+    
+    # Product stats
+    product_total_res = await db.execute(select(func.count(Product.id)).where(Product.organisation_id == org_id))
+    product_total = product_total_res.scalar() or 0
+    
+    product_active_res = await db.execute(select(func.count(Product.id)).where(and_(Product.organisation_id == org_id, Product.is_active == True)))
+    product_active = product_active_res.scalar() or 0
+    
+    # Call stats
+    call_total_res = await db.execute(select(func.count(CallSession.id)).where(CallSession.organisation_id == org_id))
+    call_total = call_total_res.scalar() or 0
+
+    return {
+        "totalCompanies": company_total,
+        "activeCompanies": company_active,
+        "inactiveCompanies": company_total - company_active,
+        "totalBrands": brand_total,
+        "activeBrands": brand_active,
+        "inactiveBrands": brand_total - brand_active,
+        "totalProducts": product_total,
+        "activeProducts": product_active,
+        "inactiveProducts": product_total - product_active,
+        "totalCalls": call_total
+    }

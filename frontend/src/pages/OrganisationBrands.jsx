@@ -7,6 +7,7 @@ import api from '../api/api';
 const OrganisationBrands = () => {
   const navigate = useNavigate();
   const [brands, setBrands] = useState([]);
+  const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -16,17 +17,28 @@ const OrganisationBrands = () => {
     name: '',
     description: '',
     logo_url: '',
+    company_id: '',
     is_active: true
   });
 
   useEffect(() => {
     fetchBrands();
+    fetchCompanies();
   }, []);
+
+  const fetchCompanies = async () => {
+    try {
+      const response = await api.get('/organisation/companies');
+      setCompanies(response.data);
+    } catch (err) {
+      console.error('Failed to load companies:', err);
+    }
+  };
 
   const fetchBrands = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/org-admin/brands');
+      const response = await api.get('/brands');
       setBrands(response.data);
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to load brands');
@@ -38,14 +50,19 @@ const OrganisationBrands = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...formData,
+        company_id: formData.company_id ? parseInt(formData.company_id) : null
+      };
+
       if (editingBrand) {
-        await api.put(`/org-admin/brands/${editingBrand.id}`, formData);
+        await api.put(`/brands/${editingBrand.id}`, payload);
       } else {
-        await api.post('/org-admin/brands', formData);
+        await api.post('/brands', payload);
       }
       setShowAddModal(false);
       setEditingBrand(null);
-      setFormData({ name: '', description: '', logo_url: '', is_active: true });
+      setFormData({ name: '', description: '', logo_url: '', company_id: '', is_active: true });
       fetchBrands();
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to save brand');
@@ -58,6 +75,7 @@ const OrganisationBrands = () => {
       name: brand.name,
       description: brand.description || '',
       logo_url: brand.logo_url || '',
+      company_id: brand.company_id || '',
       is_active: brand.is_active
     });
     setShowAddModal(true);
@@ -65,9 +83,9 @@ const OrganisationBrands = () => {
 
   const handleDelete = async (brandId) => {
     if (!window.confirm('Are you sure you want to delete this brand?')) return;
-    
+
     try {
-      await api.delete(`/org-admin/brands/${brandId}`);
+      await api.delete(`/brands/${brandId}`);
       fetchBrands();
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to delete brand');
@@ -89,7 +107,7 @@ const OrganisationBrands = () => {
         <button
           onClick={() => {
             setEditingBrand(null);
-            setFormData({ name: '', description: '', logo_url: '', is_active: true });
+            setFormData({ name: '', description: '', logo_url: '', company_id: '', is_active: true });
             setShowAddModal(true);
           }}
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
@@ -153,6 +171,13 @@ const OrganisationBrands = () => {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <h3 className="text-xl font-bold text-gray-900">{brand.name}</h3>
+                  {brand.company_name && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                        {brand.company_name}
+                      </span>
+                    </div>
+                  )}
                   {brand.description && (
                     <p className="text-gray-600 text-sm mt-2 line-clamp-2">{brand.description}</p>
                   )}
@@ -167,11 +192,11 @@ const OrganisationBrands = () => {
                   </span>
                 )}
               </div>
-              
+
               {brand.logo_url && (
                 <div className="mb-4">
-                  <img 
-                    src={brand.logo_url} 
+                  <img
+                    src={brand.logo_url}
                     alt={brand.name}
                     className="h-16 w-auto object-contain"
                     onError={(e) => e.target.style.display = 'none'}
@@ -220,7 +245,26 @@ const OrganisationBrands = () => {
                   required
                 />
               </div>
-              
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Company Associate (Optional)
+                </label>
+                <select
+                  value={formData.company_id}
+                  onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                >
+                  <option value="">No Company (Organisation Level)</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Select a company to associate this brand with</p>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Description
@@ -232,7 +276,7 @@ const OrganisationBrands = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Logo URL
@@ -244,7 +288,7 @@ const OrganisationBrands = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
-              
+
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -257,14 +301,14 @@ const OrganisationBrands = () => {
                   Active
                 </label>
               </div>
-              
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => {
                     setShowAddModal(false);
                     setEditingBrand(null);
-                    setFormData({ name: '', description: '', logo_url: '', is_active: true });
+                    setFormData({ name: '', description: '', logo_url: '', company_id: '', is_active: true });
                   }}
                   className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
                 >
