@@ -40,7 +40,7 @@ export default function OrganisationsPlatformManagement() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState(null);
-  const [createUserAccess, setCreateUserAccess] = useState(false);
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -82,7 +82,6 @@ export default function OrganisationsPlatformManagement() {
       admin_password: '',
       auto_import_products: false
     });
-    setCreateUserAccess(false);
   };
 
   const handleCreate = async () => {
@@ -96,20 +95,20 @@ export default function OrganisationsPlatformManagement() {
       return;
     }
 
-    if (createUserAccess) {
-      if (!formData.admin_password) {
-        toast.error('Password is required for login access');
-        return;
-      }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    if (!formData.username || !formData.admin_password) {
+      toast.error('Login credentials missing');
+      return;
     }
 
     setLoading(true);
     try {
       const submitData = { ...formData };
-      if (!createUserAccess) {
-        delete submitData.username;
-        delete submitData.admin_password;
-      }
 
       const response = await api.post('/superadmin/organisations', submitData);
 
@@ -133,6 +132,11 @@ export default function OrganisationsPlatformManagement() {
   const handleEdit = async () => {
     if (!formData.name.trim()) {
       toast.error('Organisation name is required');
+      return;
+    }
+
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      toast.error('Please enter a valid email address');
       return;
     }
 
@@ -330,9 +334,10 @@ export default function OrganisationsPlatformManagement() {
                   </td>
 
                   <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${org.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${org.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                        org.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
                       }`}>
-                      {org.is_active ? 'Active' : 'Inactive'}
+                      {org.status === 'rejected' ? 'Rejected' : org.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </td>
 
@@ -366,6 +371,8 @@ export default function OrganisationsPlatformManagement() {
                             address: org.address || '',
                             description: org.description || '',
                             website_url: org.website_url || '',
+                            admin_password: '',
+                            username: org.admin_username || '',
                             is_active: org.is_active
                           });
                           setShowEditModal(true);
@@ -486,52 +493,35 @@ export default function OrganisationsPlatformManagement() {
             </div>
 
             <div className="space-y-4 pt-4 border-t">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="createAccess"
-                  checked={createUserAccess}
-                  onCheckedChange={setCreateUserAccess}
-                />
-                <label htmlFor="createAccess" className="text-sm font-medium leading-none cursor-pointer">
+              <div>
+                <label>
                   Create login access for this organisation
                 </label>
               </div>
-
-              {createUserAccess && (
-                <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg animate-in fade-in zoom-in duration-200">
-                  <div className="space-y-2">
-                    <Label>Username</Label>
-                    <Input
-                      placeholder="admin_username"
-                      value={formData.username}
-                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Password *</Label>
-                    <Input
-                      type="password"
-                      placeholder="Min 6 characters"
-                      value={formData.admin_password}
-                      onChange={(e) => setFormData({ ...formData, admin_password: e.target.value })}
-                    />
-                  </div>
+              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div className="space-y-2">
+                  <Label>Username *</Label>
+                  <Input
+                    placeholder="admin_username"
+                    value={formData.username}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    required
+                  />
                 </div>
-              )}
+                <div className="space-y-2">
+                  <Label>Password *</Label>
+                  <Input
+                    type="password"
+                    placeholder="Min 6 characters"
+                    value={formData.admin_password}
+                    onChange={(e) => setFormData({ ...formData, admin_password: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
             </div>
 
-            {formData.website_url && (
-              <div className="flex items-center space-x-2 p-3 bg-blue-50 rounded-lg">
-                <Checkbox
-                  id="autoImport"
-                  checked={formData.auto_import_products}
-                  onCheckedChange={(checked) => setFormData({ ...formData, auto_import_products: !!checked })}
-                />
-                <label htmlFor="autoImport" className="text-sm font-medium text-blue-900 cursor-pointer">
-                  Auto-import products from website
-                </label>
-              </div>
-            )}
+
           </div>
 
           <DialogFooter className="pt-6">
@@ -558,7 +548,14 @@ export default function OrganisationsPlatformManagement() {
               <Label>Organisation Name</Label>
               <Input
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) => {
+                  const newName = e.target.value;
+                  setFormData({
+                    ...formData,
+                    name: newName,
+                    username: newName.trim().toLowerCase().replace(/\s+/g, '_')
+                  });
+                }}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -594,13 +591,27 @@ export default function OrganisationsPlatformManagement() {
                 onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <textarea
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              />
+          </div>
+          <div className="space-y-4 pt-4 border-t">
+            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+              <div className="space-y-2">
+                <Label>Admin Username *</Label>
+                <Input
+                  placeholder="admin_username"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Admin Password (leave blank to keep current)</Label>
+                <Input
+                  type="password"
+                  placeholder="New password"
+                  value={formData.admin_password}
+                  onChange={(e) => setFormData({ ...formData, admin_password: e.target.value })}
+                />
+              </div>
             </div>
           </div>
 

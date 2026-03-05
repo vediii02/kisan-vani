@@ -1,6 +1,7 @@
 # db/models/brand.py
 
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean
+from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from db.base import Base
 
@@ -24,3 +25,8 @@ class Brand(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=True,
     )
+
+    # Relationships
+    organisation = relationship("Organisation", back_populates="brands")
+    company = relationship("Company", back_populates="brands")
+    products = relationship("Product", back_populates="brand", cascade="all, delete-orphan")

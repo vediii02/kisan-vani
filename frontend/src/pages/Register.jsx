@@ -87,7 +87,14 @@ export default function Register() {
     setLoading(true);
 
     const { confirmPassword, ...registerData } = formData;
-    const result = await register(registerData);
+
+    // Clean up empty optional fields to avoid 422 validation errors
+    const cleanData = { ...registerData };
+    if (!cleanData.organisation_id) delete cleanData.organisation_id;
+    if (!cleanData.organisation_name) delete cleanData.organisation_name;
+    if (!cleanData.company_name) delete cleanData.company_name;
+
+    const result = await register(cleanData);
 
     if (result.success) {
       toast.success('Account created successfully! Please sign in.');
@@ -194,8 +201,8 @@ export default function Register() {
             {formData.role === 'company' && (
               <div>
                 <Label htmlFor="organisation_id">Select Organisation</Label>
-                <Select 
-                  value={formData.organisation_id} 
+                <Select
+                  value={formData.organisation_id}
                   onValueChange={(value) => setFormData({ ...formData, organisation_id: value })}
                   disabled={loadingOrgs}
                   className="mt-1"

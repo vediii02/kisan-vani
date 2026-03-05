@@ -11,7 +11,7 @@ class Organisation(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
     email = Column(String(200), unique=True, nullable=True)
-    status = Column(String(50), default="active", nullable=False)  # active, inactive, suspended
+    status = Column(String(50), default="active", nullable=False)  # active, inactive, rejected, pending
     plan_type = Column(String(50), default="basic", nullable=False)  # basic, professional, enterprise
     # Contact information
     phone_numbers = Column(String(20), nullable=True) 
@@ -46,4 +46,13 @@ class Organisation(Base):
     )
     
     # Relationship to users
-    users = relationship("User", back_populates="organisation")
+    users = relationship("User", back_populates="organisation", cascade="all, delete-orphan")
+
+    # Relationship to companies
+    companies = relationship("Company", back_populates="organisation", cascade="all, delete-orphan")
+
+    # Relationship to brands
+    brands = relationship("Brand", back_populates="organisation", cascade="all, delete-orphan")
+
+    # Relationship to products
+    products = relationship("Product", back_populates="organisation", cascade="all, delete-orphan")

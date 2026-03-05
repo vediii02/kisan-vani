@@ -65,6 +65,9 @@ async def get_organisations(
         # Apply status filter
         if status_filter:
             query = query.where(Organisation.status == status_filter)
+        else:
+            # Default filter: show only active and inactive
+            query = query.where(Organisation.status.in_(['active', 'inactive']))
         
         # Get total count
         count_query = select(func.count()).select_from(Organisation)
@@ -78,6 +81,8 @@ async def get_organisations(
             )
         if status_filter:
             count_query = count_query.where(Organisation.status == status_filter)
+        else:
+            count_query = count_query.where(Organisation.status.in_(['active', 'inactive']))
         
         result = await db.execute(count_query)
         total = result.scalar()
@@ -299,12 +304,14 @@ async def delete_organisation(
     
     try:
         org_name = org.name
+        
+        # Hard delete - database cascades will handle related records
         await db.delete(org)
         await db.commit()
         
         return {
             "success": True,
-            "message": f"Organisation '{org_name}' deleted successfully"
+            "message": f"Organisation '{org_name}' and all its related data deleted successfully"
         }
     
     except Exception as e:

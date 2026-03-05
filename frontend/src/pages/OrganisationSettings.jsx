@@ -228,7 +228,7 @@ const OrganisationSettings = () => {
                                                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Contact Phone</p>
                                                     <div className="flex items-center gap-2 text-gray-800">
                                                         <Phone className="h-4 w-4 text-gray-400" />
-                                                        <p className="font-medium">{orgProfile.phone_number || '—'}</p>
+                                                        <p className="font-medium">{orgProfile.phone_numbers || '—'}</p>
                                                     </div>
                                                 </div>
                                                 <div className="space-y-1">

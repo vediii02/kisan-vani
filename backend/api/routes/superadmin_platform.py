@@ -15,6 +15,7 @@ from db.session import get_db
 from db.models.user import User
 from db.models.organisation import Organisation
 from db.models.company import Company
+from sqlalchemy import delete as sa_delete
 from db.models.brand import Brand
 from db.models.product import Product
 from db.models.audit import AuditLog, PlatformConfig, BannedProduct
@@ -61,6 +62,11 @@ class OrganisationStats(BaseModel):
     phone_count: int
     phone_numbers: Optional[str]
     secondary_phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    description: Optional[str] = None
+    website_url: Optional[str] = None
+    admin_username: Optional[str] = None
     created_at: str
 
 
@@ -178,8 +184,8 @@ async def get_dashboard_kpis(
     today = datetime.now(timezone.utc).date()
     month_start = datetime(today.year, today.month, 1, tzinfo=timezone.utc)
     
-    # Total organisations
-    org_result = await db.execute(select(func.count(Organisation.id)))
+    # Total organisations (excluding pending/rejected)
+    org_result = await db.execute(select(func.count(Organisation.id)).where(Organisation.status.in_(['active', 'inactive'])))
     total_orgs = org_result.scalar() or 0
     
     # Active organisations
@@ -188,8 +194,8 @@ async def get_dashboard_kpis(
     )
     active_orgs = active_org_result.scalar() or 0
     
-    # Total companies
-    company_result = await db.execute(select(func.count(Company.id)))
+    # Total companies (excluding pending/rejected)
+    company_result = await db.execute(select(func.count(Company.id)).where(Company.status.in_(['active', 'inactive'])))
     total_companies = company_result.scalar() or 0
     
     # Total brands
@@ -275,27 +281,27 @@ async def get_dashboard_stats(
     total_users_result = await db.execute(select(func.count(User.id)))
     total_users = total_users_result.scalar() or 0
     
-    # Total admins (organisation role)
+    # Total admins (organisation role, active/inactive only)
     total_admins_result = await db.execute(
-        select(func.count(User.id)).where(User.role == 'organisation')
+        select(func.count(User.id)).where(and_(User.role == 'organisation', User.status.in_(['active', 'inactive'])))
     )
     total_admins = total_admins_result.scalar() or 0
     
-    # Total company users
+    # Total company users (active/inactive only)
     total_company_users_result = await db.execute(
-        select(func.count(User.id)).where(User.role == 'company')
+        select(func.count(User.id)).where(and_(User.role == 'company', User.status.in_(['active', 'inactive'])))
     )
     total_company_users = total_company_users_result.scalar() or 0
     
     # Active users
     active_users_result = await db.execute(
-        select(func.count(User.id)).where(User.is_active == True)
+        select(func.count(User.id)).where(User.status == 'active')
     )
     active_users = active_users_result.scalar() or 0
     
     # Inactive users
     inactive_users_result = await db.execute(
-        select(func.count(User.id)).where(User.is_active == False)
+        select(func.count(User.id)).where(User.status == 'inactive')
     )
     inactive_users = inactive_users_result.scalar() or 0
     
@@ -318,8 +324,8 @@ class OrganisationCreate(BaseModel):
     description: Optional[str] = None
     website_url: Optional[str] = None
     auto_import_products: bool = False
-    username: Optional[str] = None
-    admin_password: Optional[str] = None
+    username: str
+    admin_password: str
 
 class OrganisationUpdate(BaseModel):
     name: Optional[str] = None
@@ -355,8 +361,8 @@ async def create_organisation(
     # Create organisation
     new_org = Organisation(
         name=org_data.name,
-        email=org_data.email,
-        phone_numbers=org_data.phone_numbers,
+        email=org_data.email.strip() if org_data.email and org_data.email.strip() else None,
+        phone_numbers=org_data.phone_numbers if org_data.phone_numbers else None,
         address=org_data.address,
         description=org_data.description,
         website_link=org_data.website_url,
@@ -369,33 +375,39 @@ async def create_organisation(
     
     # Create default admin user for this organisation
     from core.auth import get_password_hash
-    import secrets
     
-    # Use provided password or generate random one
-    default_password = org_data.admin_password if org_data.admin_password else secrets.token_urlsafe(12)
-    # Create admin user only if password is provided
     admin_user = None
-    if org_data.admin_password:
-        org_admin_username = org_data.username if org_data.username else f"admin_{new_org.name.lower().replace(' ', '_')}"
-        
-        # Check if username already exists
-        existing_user_result = await db.execute(
-            select(User).where(User.username == org_admin_username)
+    org_admin_username = org_data.username
+    
+    # Check if username already exists
+    existing_user_result = await db.execute(
+        select(User).where(User.username == org_admin_username)
+    )
+    existing_user = existing_user_result.scalar_one_or_none()
+    
+    if existing_user:
+        # If organisation created but user exists, we might have a problem.
+        # But since we just committed the org, we should proceed or rollback.
+        # For simplicity, we'll raise an error.
+        await db.delete(new_org) # Rollback org creation
+        await db.commit()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Username '{org_admin_username}' already exists"
         )
-        existing_user = existing_user_result.scalar_one_or_none()
-        
-        if not existing_user:
-            admin_user = User(
-                username=org_admin_username,
-                email=org_data.email if org_data.email else f"{org_admin_username}@{new_org.name.lower().replace(' ', '')}.com",
-                hashed_password=get_password_hash(org_data.admin_password),
-                full_name=f"{new_org.name} Administrator",
-                role="organisation",
-                organisation_id=new_org.id,
-                is_active=True
-            )
-            db.add(admin_user)
-            await db.commit()
+
+    admin_user = User(
+        username=org_admin_username,
+        email=(org_data.email.strip() if org_data.email and org_data.email.strip() else f"{org_admin_username}@{new_org.name.lower().replace(' ', '')}.com"),
+        hashed_password=get_password_hash(org_data.admin_password),
+        full_name=f"{new_org.name} Administrator",
+        role="organisation",
+        organisation_id=new_org.id,
+        is_active=True,
+        status="active"
+    )
+    db.add(admin_user)
+    await db.commit()
     
     # Auto-import products if requested
     import_result = None
@@ -498,12 +510,12 @@ async def get_organisations_stats(
 ):
     """Get all organisations with statistics"""
     
-    query = select(Organisation)
+    query = select(Organisation).where(Organisation.status.in_(['active', 'inactive']))
     if status:
         if status == "active":
-            query = query.where(Organisation.status == 'active')
+            query = select(Organisation).where(Organisation.status == 'active')
         elif status == "inactive":
-            query = query.where(Organisation.status != 'active')
+            query = select(Organisation).where(Organisation.status == 'inactive')
     
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
@@ -529,6 +541,12 @@ async def get_organisations_stats(
         )
         total_calls = call_count.scalar() or 0
         
+        # Get admin user details
+        admin_user_result = await db.execute(
+            select(User).where(User.organisation_id == org.id, User.role == 'organisation')
+        )
+        admin_user = admin_user_result.scalars().first()
+        
         # Get phone numbers
         phone_result = await db.execute(
             text(f"SELECT phone_number FROM organisation_phone_numbers WHERE organisation_id = {org.id}")
@@ -546,6 +564,11 @@ async def get_organisations_stats(
             "phone_count": len(phones),
             "phone_numbers": org.phone_numbers,
             "secondary_phone": org.secondary_phone,
+            "email": org.email,
+            "address": org.address,
+            "description": org.description,
+            "website_url": org.website_link,
+            "admin_username": admin_user.username if admin_user else None,
             "created_at": org.created_at.isoformat() if org.created_at else ""
         })
     
@@ -571,7 +594,17 @@ async def update_organisation_status(
         raise HTTPException(status_code=404, detail="Organisation not found")
     
     old_status = org.status
-    org.status = 'active' if is_active else 'suspended'
+    org.status = 'active' if is_active else 'inactive'
+    
+    # Cascade status to organisation admin
+    admin_user_result = await db.execute(
+        select(User).where(User.organisation_id == org.id, User.role == 'organisation')
+    )
+    admin_user = admin_user_result.scalars().first()
+    if admin_user:
+        admin_user.is_active = is_active
+        admin_user.status = 'active' if is_active else 'inactive'
+        db.add(admin_user)
     
     await db.commit()
     
@@ -594,7 +627,7 @@ async def update_organisation_status(
         request=request
     )
     
-    return {"success": True, "message": f"Organisation {'activated' if is_active else 'suspended'}"}
+    return {"success": True, "message": f"Organisation {'activated' if is_active else 'inactive'}"}
 
 
 @router.put("/organisations/{org_id}")
@@ -606,6 +639,7 @@ async def update_organisation(
 ):
     """Update organisation details"""
     body = await request.json()
+    print(f"[UPDATE ORG] org_id={org_id}, body={body}")
 
     result = await db.execute(select(Organisation).where(Organisation.id == org_id))
     org = result.scalar_one_or_none()
@@ -618,9 +652,9 @@ async def update_organisation(
     if "name" in body and body["name"]:
         org.name = body["name"].strip()
     if "email" in body:
-        org.email = body["email"]
+        org.email = body["email"].strip() if body["email"] and body["email"].strip() else None
     if "phone_numbers" in body:
-        org.phone_numbers = body["phone_numbers"]
+        org.phone_numbers = body["phone_numbers"].strip() if body["phone_numbers"] and body["phone_numbers"].strip() else None
     if "address" in body:
         org.address = body["address"]
     if "description" in body:
@@ -628,6 +662,54 @@ async def update_organisation(
     if "website_url" in body:
         org.website_link = body["website_url"]
 
+    # Sync with Admin User
+    admin_user_result = await db.execute(
+        select(User).where(User.organisation_id == org.id, User.role == 'organisation')
+    )
+    admin_user = admin_user_result.scalars().first()
+    print(f"[UPDATE ORG] admin_user found: {admin_user.username if admin_user else 'NONE'}")
+
+    admin_username_saved = None
+
+    if admin_user:
+        # Determine the new username: explicit username field takes priority,
+        # otherwise sync with the org name if it changed
+        new_username = None
+        if "username" in body and body["username"]:
+            candidate = body["username"].strip()
+            if candidate != admin_user.username:
+                new_username = candidate
+        elif "name" in body and body["name"] and body["name"].strip() != old_name:
+            # Org name changed but no explicit username provided — sync username to new org name
+            new_username = body["name"].strip().lower().replace(" ", "_")
+
+        if new_username and new_username != admin_user.username:
+            existing_user_result = await db.execute(
+                select(User).where(User.username == new_username, User.id != admin_user.id)
+            )
+            if existing_user_result.scalar_one_or_none():
+                raise HTTPException(status_code=400, detail=f"Username '{new_username}' already exists")
+            admin_user.username = new_username
+            print(f"[UPDATE ORG] Username updated to: {new_username}")
+        
+        # Update password if provided
+        if "admin_password" in body and body["admin_password"]:
+            from core.auth import get_password_hash
+            admin_user.hashed_password = get_password_hash(body["admin_password"])
+            
+        # Update full name if organisation name changed
+        admin_user.full_name = f"{org.name} Administrator"
+        
+        # Update email if provided
+        if "email" in body:
+            admin_user.email = body["email"].strip() if body["email"] and body["email"].strip() else None
+        
+        db.add(admin_user)
+        admin_username_saved = admin_user.username
+    else:
+        print(f"[UPDATE ORG] WARNING: No admin user found for org_id={org.id}")
+        
+    db.add(org)
     await db.commit()
     await db.refresh(org)
 
@@ -649,7 +731,14 @@ async def update_organisation(
             request=request,
         )
 
-    return {"success": True, "organisation": {"id": org.id, "name": org.name}}
+    return {
+        "success": True,
+        "organisation": {
+            "id": org.id,
+            "name": org.name,
+            "admin_username": admin_username_saved,
+        },
+    }
 
 
 @router.delete("/organisations/{org_id}")
@@ -686,6 +775,7 @@ async def delete_organisation(
             request=request,
         )
 
+    # Hard delete - database cascades will handle related records (users, companies, brands, products)
     await db.delete(org)
     await db.commit()
 
@@ -1342,3 +1432,69 @@ async def update_platform_config(
             "updated_at": config.updated_at.isoformat()
         }
     }
+
+@router.get("/users")
+async def get_users(skip: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=1000), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).order_by(User.created_at.desc()).offset(skip).limit(limit))
+    users = result.scalars().all()
+    return users
+
+@router.delete("/users/{user_id}")
+async def delete_user(user_id: int, request: Request, current_user: dict = Depends(get_current_super_admin), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    username = user.username
+    # Hard delete - database cascades will handle related records
+    await db.delete(user)
+    await db.commit()
+    
+    # Audit log
+    current_user_obj = await db.execute(select(User).where(User.username == current_user["username"]))
+    admin_obj = current_user_obj.scalar_one_or_none()
+    if admin_obj:
+        await create_audit_log(
+            db=db,
+            user=admin_obj,
+            action_type="user_delete",
+            action_category="user",
+            description=f"Deleted user: {username}",
+            entity_type="user",
+            entity_id=user_id,
+            old_value={"username": username},
+            severity="warning",
+            request=request,
+        )
+        
+    return {"success": True, "message": f"User '{username}' deleted successfully"}
+
+@router.put("/users/{user_id}")
+async def update_user(
+    user_id: int,
+    request: Request,
+    current_user: dict = Depends(get_current_super_admin),
+    db: AsyncSession = Depends(get_db)):
+    
+    body = await request.json()
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    old_values = {"email": user.email, "full_name": user.full_name, "role": user.role, "is_active": user.is_active}
+    
+    if "email" in body:
+        user.email = body["email"]
+    if "full_name" in body:
+        user.full_name = body["full_name"]
+    if "role" in body:
+        user.role = body["role"]
+    if "is_active" in body:
+        user.is_active = body["is_active"]
+        
+    await db.commit()
+    return {"success": True, "message": "User updated"}
+    

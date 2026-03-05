@@ -107,9 +107,9 @@ async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
         hashed_password=get_password_hash(user.password),
         full_name=user.full_name,
         role=user.role,
-        is_active=True
+        is_active=True,
+        status="active"
     )
-    print(new_user, ".............................................")
     db.add(new_user)
     await db.flush()  # Get the user ID without committing
     
@@ -125,9 +125,10 @@ async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
         db.add(new_organisation)
         await db.flush()  # Get the organisation ID
         
-        # Link user to organisation and set user as inactive until approved
+        # Link user to organisation and set user as pending until approved
         new_user.organisation_id = new_organisation.id
-        new_user.is_active = False  # User cannot login until approved
+        new_user.is_active = False
+        new_user.status = "pending"
         
         logger.info(f"Organisation created with pending status: {user.organisation_name} with user: {user.username}")
     
@@ -171,7 +172,8 @@ async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
         # Link user to company and organisation
         new_user.company_id = new_company.id
         new_user.organisation_id = organisation.id
-        new_user.is_active = False  # Company users need organisation approval
+        new_user.is_active = False
+        new_user.status = "pending"  # Company users need organisation approval
         
         logger.info(f"Company created: {user.company_name} under organisation: {organisation.name} with user: {user.username}")
     
@@ -197,32 +199,40 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Check if user is active
-    if not user.is_active:
-        # For organisation users, check if their organisation is approved
-        if user.role == "organisation" and user.organisation_id:
-            org_result = await db.execute(select(Organisation).where(Organisation.id == user.organisation_id))
-            organisation = org_result.scalar_one_or_none()
-            
-            if organisation and organisation.status == "pending":
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Your organisation registration is pending approval. Please wait for super admin approval."
-                )
-            elif organisation and organisation.status == "inactive":
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Your organisation account has been deactivated. Please contact support."
-                )
-        
-        # For company users, check if they are approved by organisation
+    # Check user status
+    if user.status == "pending":
+        if user.role == "organisation":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your organisation registration is pending approval. Please wait for super admin approval."
+            )
         elif user.role == "company":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Your company user registration is pending approval. Please wait for organisation admin approval."
+                detail="Your company registration is pending approval. Please wait for organisation admin approval."
             )
-        
-        # For other inactive users
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account is pending approval."
+        )
+    
+    elif user.status == "rejected":
+        if user.role == "organisation":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your organisation registration has been rejected. Please contact support for more details."
+            )
+        elif user.role == "company":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your company registration has been rejected. Please contact your organisation admin."
+            )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been rejected."
+        )
+    
+    elif user.status == "inactive" or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your account has been deactivated. Please contact support."

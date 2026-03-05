@@ -18,6 +18,7 @@ class BrandCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=200)
     description: Optional[str] = None
     logo_url: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class BrandResponse(BaseModel):
     id: int
@@ -189,6 +190,8 @@ async def update_company_brand(
     brand.name = brand_data.name
     brand.description = brand_data.description
     brand.logo_url = brand_data.logo_url
+    if brand_data.is_active is not None:
+        brand.is_active = brand_data.is_active
     
     await db.commit()
     await db.refresh(brand)

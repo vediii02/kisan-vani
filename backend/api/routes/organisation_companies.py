@@ -125,8 +125,12 @@ async def get_companies(
     # Apply filters
     if search:
         query = query.where(Company.name.ilike(f"%{search}%"))
+    
     if status:
         query = query.where(Company.status == status)
+    else:
+        # Default: only show approved companies (active or inactive)
+        query = query.where(Company.status.in_(['active', 'inactive']))
     
     # Get total count
     count_query = select(func.count()).select_from(Company)
@@ -134,8 +138,12 @@ async def get_companies(
         count_query = count_query.where(Company.organisation_id == org_id)
     if search:
         count_query = count_query.where(Company.name.ilike(f"%{search}%"))
+    
     if status:
         count_query = count_query.where(Company.status == status)
+    else:
+        # Same default for count
+        count_query = count_query.where(Company.status.in_(['active', 'inactive']))
     
     total_result = await db.execute(count_query)
     total = total_result.scalar()
@@ -373,6 +381,18 @@ async def update_company(
     
     company.updated_at = datetime.now(timezone.utc)
     
+    # Sync with company admin user
+    admin_user_result = await db.execute(
+        select(User).where(User.company_id == company.id, User.role == 'company')
+    )
+    admin_user = admin_user_result.scalars().first()
+    if admin_user:
+        if company_data.name is not None:
+            admin_user.full_name = f'{company_data.name} Admin'
+        if company_data.email is not None:
+            admin_user.email = company_data.email
+        db.add(admin_user)
+        
     await db.commit()
     await db.refresh(company)
     
@@ -415,7 +435,7 @@ async def delete_company(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Delete company (soft delete)"""
+    """Delete company (hard delete)"""
     
     org_id = await check_organisation_access(current_user, db)
     
@@ -429,13 +449,12 @@ async def delete_company(
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
     
-    # Soft delete
-    company.status = "inactive"
-    company.updated_at = datetime.now(timezone.utc)
-    
+    company_name = company.name
+    # Hard delete - database cascades will handle related records
+    await db.delete(company)
     await db.commit()
     
-    logger.info(f"User {current_user['username']} deleted company: {company.name}")
+    logger.info(f"User {current_user['username']} deleted company: {company_name}")
     
     return None
 @router.get("/stats/summary")

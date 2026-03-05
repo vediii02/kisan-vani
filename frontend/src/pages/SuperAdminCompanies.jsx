@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Building2, Search, Edit, Trash2, Plus, Package, Phone } from 'lucide-react';
+import { Loader2, Building2, Search, Edit, Trash2, Plus, Package, Phone, User as UserIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/utils';
 import api from '../api/api';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function SuperAdminCompanies() {
   const [companies, setCompanies] = useState([]);
@@ -14,6 +16,7 @@ export default function SuperAdminCompanies() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingCompany, setEditingCompany] = useState(null);
+  const [createUserAccess, setCreateUserAccess] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     organisation_id: '',
@@ -21,7 +24,9 @@ export default function SuperAdminCompanies() {
     phone: '',
     address: '',
     contact_person: '',
-    status: 'active'
+    status: 'active',
+    username: '',
+    password: ''
   });
 
   useEffect(() => {
@@ -52,13 +57,55 @@ export default function SuperAdminCompanies() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!formData.name.trim()) {
+      toast.error('Company name is required');
+      return;
+    }
+
+    if (!formData.organisation_id) {
+      toast.error('Please select an organisation');
+      return;
+    }
+
+    if (!formData.email.trim()) {
+      toast.error('Email is required');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    if (createUserAccess) {
+      if (!formData.username.trim()) {
+        toast.error('Username is required when creating login access');
+        return;
+      }
+      if (!formData.password || formData.password.length < 6) {
+        toast.error('Password must be at least 6 characters');
+        return;
+      }
+    }
+
     try {
       if (editingCompany) {
         await api.put(`/admin/companies/${editingCompany.id}`, formData);
         toast.success('Company updated successfully');
       } else {
-        await api.post('/admin/companies', formData);
-        toast.success('Company created successfully');
+        const submitData = { ...formData };
+        if (!createUserAccess) {
+          delete submitData.username;
+          delete submitData.password;
+        }
+        const response = await api.post('/admin/companies', submitData);
+        let successMsg = 'Company created successfully';
+        if (response.data.admin_user) {
+          successMsg += `. Login credentials: ${response.data.admin_user.username}`;
+        }
+        toast.success(successMsg);
       }
       setShowModal(false);
       resetForm();
@@ -71,7 +118,7 @@ export default function SuperAdminCompanies() {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this company?')) return;
-    
+
     try {
       await api.delete(`/admin/companies/${id}`);
       toast.success('Company deleted successfully');
@@ -90,9 +137,12 @@ export default function SuperAdminCompanies() {
       phone: '',
       address: '',
       contact_person: '',
-      status: 'active'
+      status: 'active',
+      username: '',
+      password: ''
     });
     setEditingCompany(null);
+    setCreateUserAccess(false);
   };
 
   const openEditModal = (company) => {
@@ -104,7 +154,9 @@ export default function SuperAdminCompanies() {
       phone: company.phone || '',
       address: company.address || '',
       contact_person: company.contact_person || '',
-      status: company.status || 'active'
+      status: company.status || 'active',
+      username: '',
+      password: ''
     });
     setShowModal(true);
   };
@@ -160,11 +212,10 @@ export default function SuperAdminCompanies() {
                   <p className="text-sm text-gray-500">{company.organisation_name}</p>
                 </div>
               </div>
-              <span className={`px-2 py-1 text-xs rounded-full ${
-                company.status === 'active' 
-                  ? 'bg-green-100 text-green-700' 
-                  : 'bg-red-100 text-red-700'
-              }`}>
+              <span className={`px-2 py-1 text-xs rounded-full ${company.status === 'active'
+                ? 'bg-green-100 text-green-700'
+                : 'bg-red-100 text-red-700'
+                }`}>
                 {company.status === 'active' ? 'Active' : 'Inactive'}
               </span>
             </div>
@@ -217,7 +268,7 @@ export default function SuperAdminCompanies() {
             <h3 className="text-xl font-bold mb-4">
               {editingCompany ? 'Edit Company' : 'Add New Company'}
             </h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4 max-h-[80vh] overflow-y-auto px-1">
               <div>
                 <label className="block text-sm font-medium mb-1">Company Name *</label>
                 <Input
@@ -281,6 +332,44 @@ export default function SuperAdminCompanies() {
                   placeholder="Company address"
                 />
               </div>
+
+              {!editingCompany && (
+                <div className="space-y-4 pt-4 border-t">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="createAccess"
+                      checked={createUserAccess}
+                      onCheckedChange={setCreateUserAccess}
+                    />
+                    <Label htmlFor="createAccess" className="text-sm font-medium leading-none cursor-pointer">
+                      Create login access for this company
+                    </Label>
+                  </div>
+
+                  {createUserAccess && (
+                    <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg animate-in fade-in zoom-in duration-200">
+                      <div className="space-y-2">
+                        <Label>Username</Label>
+                        <Input
+                          placeholder="admin_username"
+                          value={formData.username}
+                          onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Password *</Label>
+                        <Input
+                          type="password"
+                          placeholder="Min 6 characters"
+                          required={createUserAccess}
+                          value={formData.password}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium mb-1">Status</label>

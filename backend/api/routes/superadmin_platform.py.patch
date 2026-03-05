@@ -1,0 +1,10 @@
+--- backend/api/routes/superadmin_platform.py
++++ backend/api/routes/superadmin_platform.py
+@@ -675,6 +675,7 @@
+                 if existing_user_result.scalar_one_or_none():
+                     raise HTTPException(status_code=400, detail=f"Username '{new_username}' already exists")
+                 admin_user.username = new_username
++                print(f"DEBUG: Updated username to {new_username}")
+         
+         # Update password if provided
+         if "admin_password" in body and body["admin_password"]:

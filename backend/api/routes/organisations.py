@@ -28,7 +28,7 @@ router = APIRouter(prefix="/organisations", tags=["organisations"])
 class OrganisationCreate(BaseModel):
     name: str = Field(..., min_length=3, max_length=200)
     email: Optional[str] = Field(None, max_length=200)
-    status: str = Field(default="active", pattern="^(active|inactive|suspended)$")
+    status: str = Field(default="active", pattern="^(active|inactive|rejected|pending)$")
     plan_type: str = Field(default="basic", pattern="^(basic|professional|enterprise)$")
     phone_numbers: Optional[str] = Field(None, max_length=20)
     secondary_phone: Optional[str] = Field(None, max_length=20)
@@ -42,7 +42,7 @@ class OrganisationCreate(BaseModel):
 class OrganisationUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=3, max_length=200)
     email: Optional[str] = Field(None, max_length=200)
-    status: Optional[str] = Field(None, pattern="^(active|inactive|suspended)$")
+    status: Optional[str] = Field(None, pattern="^(active|inactive|rejected|pending)$")
     plan_type: Optional[str] = Field(None, pattern="^(basic|professional|enterprise)$")
     phone_numbers: Optional[str] = Field(None, max_length=20)
     secondary_phone: Optional[str] = Field(None, max_length=20)

@@ -104,6 +104,7 @@ async def approve_user(
     
     # Approve the user and organisation
     user.is_active = True
+    user.status = "active"
     
     if organisation:
         organisation.status = "active"
@@ -146,6 +147,7 @@ async def reject_user(
     
     # Soft-reject: mark as rejected instead of deleting
     user.is_active = False
+    user.status = "rejected"
     
     if organisation:
         organisation.status = "rejected"
@@ -178,7 +180,7 @@ async def get_approval_stats(
         .where(
             and_(
                 User.role == "organisation",
-                User.is_active == False,
+                User.status == "pending",
                 Organisation.status == "pending"
             )
         )

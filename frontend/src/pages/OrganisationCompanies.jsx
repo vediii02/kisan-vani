@@ -639,7 +639,7 @@ export default function OrganisationCompanies() {
               />
             </div>
 
-            <div>
+            {/* <div>
               <Label htmlFor="edit_address">Address</Label>
               <Input
                 id="edit_address"
@@ -686,7 +686,7 @@ export default function OrganisationCompanies() {
                   onChange={(e) => setFormData({ ...formData, max_products: parseInt(e.target.value) || 100 })}
                 />
               </div>
-            </div>
+            </div> */}
 
             <div>
               <Label htmlFor="edit_status">Status</Label>

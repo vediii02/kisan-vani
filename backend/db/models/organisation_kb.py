@@ -7,7 +7,7 @@ class OrganisationKnowledgeBase(Base):
     __tablename__ = "organisation_kb_files"
 
     id = Column(Integer, primary_key=True, index=True)
-    organisation_id = Column(Integer, ForeignKey('organisations.id'), nullable=False, index=True)
+    organisation_id = Column(Integer, ForeignKey('organisations.id', ondelete="CASCADE"), nullable=False, index=True)
     file_name = Column(String(255), nullable=False)
     file_type = Column(String(20), nullable=False)  # pdf or csv
     file_path = Column(String(500), nullable=False)

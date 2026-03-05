@@ -7,7 +7,7 @@ class KBEntry(Base):
     __tablename__ = "kb_entries"
     
     id = Column(Integer, primary_key=True, index=True)
-    organisation_id = Column(Integer, sa.ForeignKey('organisations.id'), nullable=True, index=True)
+    organisation_id = Column(Integer, sa.ForeignKey('organisations.id', ondelete="CASCADE"), nullable=True, index=True)
     title = Column(String(500), nullable=False)
     content = Column(Text, nullable=False)
     crop_name = Column(String(100))

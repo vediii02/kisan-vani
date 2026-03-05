@@ -42,7 +42,7 @@ class Company(Base):
     registration_number = Column(String(100), nullable=True)
     
     # Status
-    status = Column(String(50), default="active")  # active, inactive, suspended
+    status = Column(String(50), default="active")  # active, inactive, rejected, pending
     
     # Limits
     max_operators = Column(Integer, default=5, nullable=False, server_default="5")
@@ -68,4 +68,13 @@ class Company(Base):
     # One company has many products
     
     # Relationship to users
-    users = relationship("User", back_populates="company")
+    users = relationship("User", back_populates="company", cascade="all, delete-orphan")
+
+    # Relationship to organisation
+    organisation = relationship("Organisation", back_populates="companies")
+
+    # Relationship to brands
+    brands = relationship("Brand", back_populates="company", cascade="all, delete-orphan")
+
+    # Relationship to products
+    products = relationship("Product", back_populates="company", cascade="all, delete-orphan")

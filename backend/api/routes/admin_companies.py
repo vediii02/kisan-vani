@@ -52,7 +52,7 @@ async def get_companies(
     Supports pagination and search
     """
     try:
-        query = select(Company)
+        query = select(Company).where(Company.status.in_(['active', 'inactive']))
         
         # Apply organisation filter
         if organisation_id:
@@ -64,7 +64,7 @@ async def get_companies(
             query = query.where(Company.name.ilike(search_term))
         
         # Get total count
-        count_query = select(func.count()).select_from(Company)
+        count_query = select(func.count()).select_from(Company).where(Company.status.in_(['active', 'inactive']))
         if organisation_id:
             count_query = count_query.where(Company.organisation_id == organisation_id)
         if search:
@@ -203,6 +203,33 @@ async def create_company(
         db.add(new_company)
         await db.commit()
         await db.refresh(new_company)
+
+        # Create company admin user if password is provided
+        admin_user_data = None
+        if company_data.get("password"):
+            username = company_data.get("username") or f"admin_{new_company.name.lower().replace(' ', '_')}"
+            
+            # Check if username exists
+            existing_user_result = await db.execute(select(User).where(User.username == username))
+            existing_user = existing_user_result.scalar_one_or_none()
+            
+            if not existing_user:
+                new_user = User(
+                    username=username,
+                    email=company_data.get("email") or f"{username}@{new_company.name.lower().replace(' ', '')}.com",
+                    hashed_password=get_password_hash(company_data["password"]),
+                    full_name=f"{new_company.name} Admin",
+                    role="company",
+                    organisation_id=new_company.organisation_id,
+                    company_id=new_company.id,
+                    is_active=True
+                )
+                db.add(new_user)
+                await db.commit()
+                admin_user_data = {
+                    "username": new_user.username,
+                    "password": company_data["password"]
+                }
         
         return {
             "success": True,
@@ -211,7 +238,8 @@ async def create_company(
                 "id": new_company.id,
                 "name": new_company.name,
                 "organisation_id": new_company.organisation_id
-            }
+            },
+            "admin_user": admin_user_data
         }
     
     except Exception as e:
@@ -263,6 +291,18 @@ async def update_company(
         
         company.updated_at = datetime.now(timezone.utc)
         
+        # Sync with company admin user
+        admin_user_result = await db.execute(
+            select(User).where(User.company_id == company.id, User.role == 'company')
+        )
+        admin_user = admin_user_result.scalars().first()
+        if admin_user:
+            if "name" in company_data:
+                admin_user.full_name = f'{company_data["name"]} Admin'
+            if "email" in company_data:
+                admin_user.email = company_data["email"]
+            db.add(admin_user)
+            
         await db.commit()
         await db.refresh(company)
         
@@ -313,25 +353,13 @@ async def delete_company(
         products = products_count.scalar()
         users = users_count.scalar()
         
-        if any([products, users]):
-            details = []
-            if products > 0:
-                details.append(f"{products} products")
-            if users > 0:
-                details.append(f"{users} users")
-            
-            raise HTTPException(
-                status_code=400,
-                detail=f"Cannot delete company. It has {', '.join(details)}. Please delete related records first or set is_active to false."
-            )
-        
-        # Hard delete if no related records
+        # Hard delete - database cascades will handle related records
         await db.delete(company)
         await db.commit()
         
         return {
             "success": True,
-            "message": f"Company '{company_name}' deleted successfully"
+            "message": f"Company '{company_name}' and all its related data deleted successfully"
         }
     
     except HTTPException:

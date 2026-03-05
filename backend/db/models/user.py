@@ -17,9 +17,10 @@ class User(Base):
 
     full_name = Column(String(200))
     role = Column(String(50), default="company")  # admin, organisation, company
-    organisation_id = Column(Integer, ForeignKey("organisations.id"), nullable=True)  # For organisation role
-    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)  # For company role
+    organisation_id = Column(Integer, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=True)  # For organisation role
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=True)  # For company role
     is_active = Column(Boolean, default=True)
+    status = Column(String(20), default="active")  # active, inactive, rejected, pending
 
     created_at = Column(
         DateTime(timezone=True),

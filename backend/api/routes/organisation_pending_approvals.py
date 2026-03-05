@@ -53,7 +53,7 @@ async def get_pending_approvals(
         .where(
             and_(
                 User.role == "company",
-                User.is_active == False,
+                User.status == "pending",
                 User.organisation_id == current_db_user.organisation_id
             )
         )
@@ -126,6 +126,7 @@ async def approve_user(
     
     # Approve the user
     user.is_active = True
+    user.status = "active"
     
     await db.commit()
     
@@ -177,6 +178,7 @@ async def reject_user(
     
     # Soft-reject: mark as rejected instead of deleting
     user.is_active = False
+    user.status = "rejected"
     
     if user.company:
         user.company.status = "rejected"
@@ -221,7 +223,7 @@ async def get_approval_stats(
         .where(
             and_(
                 User.role == "company",
-                User.is_active == False,
+                User.status == "pending",
                 User.organisation_id == current_db_user.organisation_id
             )
         )
@@ -233,7 +235,7 @@ async def get_approval_stats(
         select(User).where(
             and_(
                 User.role == "company",
-                User.is_active == True,
+                User.status == "active",
                 User.organisation_id == current_db_user.organisation_id
             )
         )

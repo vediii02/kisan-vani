@@ -282,7 +282,7 @@ const SuperAdminPlatformDashboard = () => {
                       ? 'bg-green-100 text-green-800'
                       : 'bg-red-100 text-red-800'
                       }`}>
-                      {org.is_active ? 'Active' : 'Suspended'}
+                      {org.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
                   <div className="space-y-1 mt-3">
