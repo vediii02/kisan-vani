@@ -403,7 +403,6 @@ async def create_organisation(
         full_name=f"{new_org.name} Administrator",
         role="organisation",
         organisation_id=new_org.id,
-        is_active=True,
         status="active"
     )
     db.add(admin_user)
@@ -602,7 +601,6 @@ async def update_organisation_status(
     )
     admin_user = admin_user_result.scalars().first()
     if admin_user:
-        admin_user.is_active = is_active
         admin_user.status = 'active' if is_active else 'inactive'
         db.add(admin_user)
     
@@ -1484,7 +1482,7 @@ async def update_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         
-    old_values = {"email": user.email, "full_name": user.full_name, "role": user.role, "is_active": user.is_active}
+    old_values = {"email": user.email, "full_name": user.full_name, "role": user.role, "status": user.status}
     
     if "email" in body:
         user.email = body["email"]
@@ -1492,8 +1490,11 @@ async def update_user(
         user.full_name = body["full_name"]
     if "role" in body:
         user.role = body["role"]
-    if "is_active" in body:
-        user.is_active = body["is_active"]
+    if "status" in body:
+        user.status = body["status"]
+    elif "is_active" in body:
+        # Backward compatibility: convert boolean is_active to status string
+        user.status = "active" if body["is_active"] else "inactive"
         
     await db.commit()
     return {"success": True, "message": "User updated"}

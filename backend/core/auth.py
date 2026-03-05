@@ -62,12 +62,13 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
         "role": user.role,
         "organisation_id": user.organisation_id,  # Include organisation_id
         "company_id": user.company_id,  # Include company_id
-        "is_active": user.is_active,
+        "is_active": user.status == "active",
+        "status": user.status,
         "created_at": user.created_at.isoformat() if user.created_at else None
     }
 
 async def get_current_active_user(current_user: dict = Depends(get_current_user)):
-    if not current_user.get("is_active", True):
+    if current_user.get("status") != "active":
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 

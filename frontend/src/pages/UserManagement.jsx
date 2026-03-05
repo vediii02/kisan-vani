@@ -43,7 +43,7 @@ export default function UserManagement() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  
+
   const [newUser, setNewUser] = useState({
     username: '',
     email: '',
@@ -56,7 +56,7 @@ export default function UserManagement() {
     email: '',
     full_name: '',
     role: '',
-    is_active: true,
+    status: 'active',
   });
 
   const [resetPassword, setResetPassword] = useState('');
@@ -141,7 +141,7 @@ export default function UserManagement() {
       email: user.email,
       full_name: user.full_name,
       role: user.role,
-      is_active: user.is_active,
+      status: user.is_active ? 'active' : 'inactive',
     });
     setEditDialogOpen(true);
   };
@@ -185,7 +185,7 @@ export default function UserManagement() {
           <h2 className="text-4xl font-bold tracking-tight">Organisation Management</h2>
           <p className="text-muted-foreground mt-2 text-lg">Manage system Organisation and their roles</p>
         </div>
-        
+
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button data-testid="add-user-btn" className="rounded-full font-medium shadow-sm hover:shadow-md transition-all">
@@ -364,12 +364,12 @@ export default function UserManagement() {
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  id="edit_is_active"
-                  checked={editUser.is_active}
-                  onChange={(e) => setEditUser({ ...editUser, is_active: e.target.checked })}
+                  id="edit_status"
+                  checked={editUser.status === 'active'}
+                  onChange={(e) => setEditUser({ ...editUser, status: e.target.checked ? 'active' : 'inactive' })}
                   className="w-4 h-4"
                 />
-                <Label htmlFor="edit_is_active">Active</Label>
+                <Label htmlFor="edit_status">Active</Label>
               </div>
             </div>
             <DialogFooter>

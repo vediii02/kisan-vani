@@ -1,6 +1,6 @@
 # db/models/user.py
 
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from db.base import Base
@@ -19,7 +19,6 @@ class User(Base):
     role = Column(String(50), default="company")  # admin, organisation, company
     organisation_id = Column(Integer, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=True)  # For organisation role
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=True)  # For company role
-    is_active = Column(Boolean, default=True)
     status = Column(String(20), default="active")  # active, inactive, rejected, pending
 
     created_at = Column(

@@ -62,7 +62,7 @@ async def create_organisation_admin():
                 full_name="Rasi Seeds Administrator",
                 role="organisation_admin",
                 organisation_id=rasi_org.id,
-                is_active=True
+                status="active"
             )
             
             db.add(new_user)
@@ -164,7 +164,7 @@ async def create_custom_org_admin(org_id: int, username: str, password: str, ema
                 full_name=f"{org.name} Administrator",
                 role="organisation_admin",
                 organisation_id=org.id,
-                is_active=True
+                status="active"
             )
             
             db.add(new_user)

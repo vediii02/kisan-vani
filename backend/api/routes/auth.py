@@ -107,7 +107,6 @@ async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
         hashed_password=get_password_hash(user.password),
         full_name=user.full_name,
         role=user.role,
-        is_active=True,
         status="active"
     )
     db.add(new_user)
@@ -127,7 +126,6 @@ async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
         
         # Link user to organisation and set user as pending until approved
         new_user.organisation_id = new_organisation.id
-        new_user.is_active = False
         new_user.status = "pending"
         
         logger.info(f"Organisation created with pending status: {user.organisation_name} with user: {user.username}")
@@ -172,7 +170,6 @@ async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
         # Link user to company and organisation
         new_user.company_id = new_company.id
         new_user.organisation_id = organisation.id
-        new_user.is_active = False
         new_user.status = "pending"  # Company users need organisation approval
         
         logger.info(f"Company created: {user.company_name} under organisation: {organisation.name} with user: {user.username}")
@@ -232,7 +229,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
             detail="Your account has been rejected."
         )
     
-    elif user.status == "inactive" or not user.is_active:
+    elif user.status == "inactive":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your account has been deactivated. Please contact support."
@@ -247,7 +244,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
         "email": user.email,
         "full_name": user.full_name,
         "role": user.role,
-        "is_active": user.is_active,
+        "is_active": user.status == "active",
         "created_at": user.created_at.isoformat() if user.created_at else None
     }
     
@@ -280,7 +277,7 @@ async def login_json(credentials: UserLogin, db: AsyncSession = Depends(get_db))
         "email": user.email,
         "full_name": user.full_name,
         "role": user.role,
-        "is_active": user.is_active,
+        "is_active": user.status == "active",
         "created_at": user.created_at.isoformat() if user.created_at else None
     }
     
@@ -336,7 +333,7 @@ async def update_profile(
         "email": user.email,
         "full_name": user.full_name,
         "role": user.role,
-        "is_active": user.is_active,
+        "is_active": user.status == "active",
         "created_at": user.created_at.isoformat() if user.created_at else None
     }
 

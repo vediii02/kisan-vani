@@ -75,7 +75,7 @@ async def seed_data():
                 hashed_password=pwd_context.hash("admin123"),
                 full_name="Admin User",
                 role="admin",
-                is_active=True
+                status="active"
             )
             db.add(demo_user)
             await db.commit()

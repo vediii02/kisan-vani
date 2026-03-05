@@ -40,7 +40,7 @@ async def seed_superadmin():
             hashed_password=get_password_hash("superadmin123"),
             full_name="Super Administrator",
             role="superadmin",
-            is_active=True
+            status="active"
         )
         
         db.add(superadmin)

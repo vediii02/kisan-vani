@@ -8,19 +8,19 @@ hashed_password = pwd_context.hash("superadmin123")
 
 sql = f"""
 -- Insert Super Admin User
-INSERT INTO users (username, email, hashed_password, full_name, role, is_active, created_at)
+INSERT INTO users (username, email, hashed_password, full_name, role, status, created_at)
 VALUES (
     'superadmin',
     'superadmin@kisanvani.ai',
     '{hashed_password}',
     'Super Administrator',
     'superadmin',
-    1,
+    'active',
     NOW()
 );
 
 -- Verify the user was created
-SELECT id, username, email, full_name, role, is_active 
+SELECT id, username, email, full_name, role, status
 FROM users 
 WHERE username = 'superadmin';
 """

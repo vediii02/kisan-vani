@@ -180,7 +180,7 @@ async def create_rasi_brands(db, org_id: int):
             organisation_id=org_id,
             name=brand_data['name'],
             description=brand_data['description'],
-            is_active=True
+            status="active"
         )
         
         db.add(brand)

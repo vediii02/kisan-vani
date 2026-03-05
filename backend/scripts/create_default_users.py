@@ -79,7 +79,7 @@ async def create_default_users():
                     hashed_password=get_password_hash(user_data["password"]),
                     full_name=user_data["full_name"],
                     role=user_data["role"],
-                    is_active=True,
+                    status="active",
                     created_at=datetime.now(timezone.utc)
                 )
                 

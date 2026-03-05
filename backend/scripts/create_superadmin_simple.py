@@ -69,7 +69,7 @@ async def create_superadmin():
                     
                     # Insert superadmin
                     await cursor.execute(
-                        """INSERT INTO users (username, email, hashed_password, full_name, role, is_active, created_at)
+                        """INSERT INTO users (username, email, hashed_password, full_name, role, status, created_at)
                         VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                         (
                             'superadmin',
@@ -77,7 +77,7 @@ async def create_superadmin():
                             hashed_password,
                             'Super Administrator',
                             'superadmin',
-                            True,
+                            'active',
                             datetime.now(timezone.utc)
                         )
                     )
@@ -100,14 +100,14 @@ async def create_superadmin():
             print(f"❌ Error: {e}")
             print("\n💡 Alternative: Run this SQL directly in your MySQL database:")
             print(f"""
-INSERT INTO users (username, email, hashed_password, full_name, role, is_active, created_at)
+INSERT INTO users (username, email, hashed_password, full_name, role, status, created_at)
 VALUES (
     'superadmin',
     'superadmin@kisanvani.ai',
     '{pwd_context.hash("superadmin123")}',
     'Super Administrator',
     'superadmin',
-    1,
+    'active',
     NOW()
 );
 """)
@@ -124,14 +124,14 @@ if __name__ == "__main__":
         print(f"""
 Run this in your MySQL database:
 
-INSERT INTO users (username, email, hashed_password, full_name, role, is_active, created_at)
+INSERT INTO users (username, email, hashed_password, full_name, role, status, created_at)
 VALUES (
     'superadmin',
     'superadmin@kisanvani.ai',
     '{hashed}',
     'Super Administrator',
     'superadmin',
-    1,
+    'active',
     NOW()
 );
 

@@ -117,7 +117,7 @@ async def approve_user(
     if user.role != "company":
         raise HTTPException(status_code=400, detail="Only company users can be approved through this endpoint")
     
-    if user.is_active:
+    if user.status == "active":
         raise HTTPException(status_code=400, detail="User is already approved")
     
     # Verify the user belongs to the same organisation
@@ -125,7 +125,6 @@ async def approve_user(
         raise HTTPException(status_code=403, detail="You can only approve users from your organisation")
     
     # Approve the user
-    user.is_active = True
     user.status = "active"
     
     await db.commit()
@@ -177,7 +176,6 @@ async def reject_user(
         raise HTTPException(status_code=403, detail="You can only reject users from your organisation")
     
     # Soft-reject: mark as rejected instead of deleting
-    user.is_active = False
     user.status = "rejected"
     
     if user.company:
@@ -336,7 +334,7 @@ async def get_today_registrations(
             "role": user.role,
             "company_name": company.name,
             "company_id": company.id,
-            "is_active": user.is_active,
+            "is_active": user.status == "active",
             "company_status": company.status,
             "created_at": user.created_at.isoformat() if user.created_at else None,
         })

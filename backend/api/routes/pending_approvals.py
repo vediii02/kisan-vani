@@ -45,7 +45,7 @@ async def get_pending_approvals(
         .where(
             and_(
                 User.role == "organisation",
-                User.is_active == False,
+                User.status == "pending",
                 Organisation.status == "pending"
             )
         )
@@ -95,7 +95,7 @@ async def approve_user(
     if user.role != "organisation":
         raise HTTPException(status_code=400, detail="Only organisation users can be approved through this endpoint")
     
-    if user.is_active:
+    if user.status == "active":
         raise HTTPException(status_code=400, detail="User is already approved")
     
     # Find the organisation
@@ -103,7 +103,6 @@ async def approve_user(
     organisation = org_result.scalar_one_or_none()
     
     # Approve the user and organisation
-    user.is_active = True
     user.status = "active"
     
     if organisation:
@@ -146,7 +145,6 @@ async def reject_user(
     organisation = org_result.scalar_one_or_none()
     
     # Soft-reject: mark as rejected instead of deleting
-    user.is_active = False
     user.status = "rejected"
     
     if organisation:
@@ -275,7 +273,7 @@ async def get_today_registrations(
             "role": user.role,
             "organisation_name": organisation.name,
             "organisation_id": organisation.id,
-            "is_active": user.is_active,
+            "is_active": user.status == "active",
             "org_status": organisation.status,
             "created_at": user.created_at.isoformat() if user.created_at else None,
         })
