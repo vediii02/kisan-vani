@@ -17,6 +17,7 @@ from db.base import AsyncSessionLocal
 from db.models.organisation import Organisation
 from db.models.brand import Brand
 from db.models.product import Product
+from db.models.company import Company
 import re
 
 # Rasi Seeds product categories
@@ -93,10 +94,10 @@ async def create_rasi_organisation(db):
     
     org = Organisation(
         name="Rasi Seeds",
-        domain="rasiseeds.com",
+        website_link="https://www.rasiseeds.com",
         status="active",
         plan_type="enterprise",
-        phone_numbers='["+91-40-23430733"]'
+        phone_numbers="+91-40-23430733"
     )
     
     db.add(org)
@@ -105,6 +106,35 @@ async def create_rasi_organisation(db):
     
     print(f"✓ Created organisation: {org.name} (ID: {org.id})")
     return org
+
+
+async def create_rasi_company(db, org_id: int):
+    """Create Rasi Seeds company under the organisation"""
+    result = await db.execute(
+        select(Company).filter(
+            Company.organisation_id == org_id,
+            Company.name == "Rasi Seeds Pvt Ltd"
+        )
+    )
+    company = result.scalar_one_or_none()
+    
+    if company:
+        print("✓ Rasi Seeds company already exists")
+        return company
+        
+    company = Company(
+        organisation_id=org_id,
+        name="Rasi Seeds Pvt Ltd",
+        business_type="Manufacturer",
+        brand_name="Rasi Seeds",
+        status="active",
+        phone="+91-40-23430733"
+    )
+    db.add(company)
+    await db.commit()
+    await db.refresh(company)
+    print(f"✓ Created company: {company.name} (ID: {company.id})")
+    return company
 
 
 async def create_rasi_brands(db, org_id: int):
@@ -163,7 +193,7 @@ async def create_rasi_brands(db, org_id: int):
     return brands
 
 
-async def import_products(db, org_id: int, brands: dict, products_data: list):
+async def import_products(db, org_id: int, company_id: int, brands: dict, products_data: list):
     """Import products into database"""
     
     category_to_brand = {
@@ -203,6 +233,7 @@ async def import_products(db, org_id: int, brands: dict, products_data: list):
             # Create product
             product = Product(
                 organisation_id=org_id,
+                company_id=company_id,
                 brand_id=brand.id,
                 name=product_data['name'],
                 category="seed",
@@ -241,14 +272,15 @@ async def main():
     print("\n[2/4] Connecting to database...")
     async with AsyncSessionLocal() as db:
         try:
-            # Step 3: Create organisation and brands
-            print("\n[3/4] Setting up organisation and brands...")
+            # Step 3: Create organisation, company, and brands
+            print("\n[3/4] Setting up organisation, company and brands...")
             org = await create_rasi_organisation(db)
+            company = await create_rasi_company(db, org.id)
             brands = await create_rasi_brands(db, org.id)
             
             # Step 4: Import products
             print("\n[4/4] Importing products...")
-            imported, skipped = await import_products(db, org.id, brands, products)
+            imported, skipped = await import_products(db, org.id, company.id, brands, products)
             
             print("\n" + "=" * 60)
             print("✅ IMPORT COMPLETE!")
