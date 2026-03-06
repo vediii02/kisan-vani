@@ -72,11 +72,10 @@ _pg_db = os.getenv("PG_DATABASE", "kisanvani")
 _pg_conn_str = f"postgresql://{_pg_user}:{_pg_pass}@{_pg_host}:{_pg_port}/{_pg_db}"
 
 checkpointer = None
-_checkpointer_initialized = False
 
-async def _ensure_checkpointer():
-    global checkpointer, _checkpointer_initialized
-    if _checkpointer_initialized:
+async def init_checkpointer():
+    global checkpointer
+    if checkpointer is not None:
         return
     try:
         from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -90,7 +89,6 @@ async def _ensure_checkpointer():
         logger.error(f"Checkpointer init failed, falling back to in-memory: {e}")
         from langgraph.checkpoint.memory import MemorySaver
         checkpointer = MemorySaver()
-    _checkpointer_initialized = True
 
 
 # ==========================================
@@ -272,7 +270,8 @@ async def get_agent_executor(organisation_id: int | None = None, company_id: int
     if cache_key in _agent_cache:
         return _agent_cache[cache_key]
 
-    await _ensure_checkpointer()
+    if checkpointer is None:
+        await init_checkpointer()
     current_llm = await get_llm()
 
     if organisation_id is None:

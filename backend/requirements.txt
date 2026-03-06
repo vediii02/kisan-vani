@@ -69,6 +69,7 @@ langchain-openai
 langchain-groq
 langgraph-checkpoint-postgres
 psycopg[binary]
+psycopg-pool
 librt==0.7.4
 litellm==1.80.0
 Mako==1.3.10

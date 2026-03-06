@@ -12,13 +12,13 @@ from dotenv import load_dotenv
 from core.config import settings
 from core.logging import setup_logging
 from api.routes import kb, admin, auth, organisations, products
-from api.routes import superadmin_platform, admin_organisations, admin_companies, organisation_companies  # Multi-tenant routes
-from api.routes import pending_approvals  # Pending approvals for super admin
-from api.routes import organisation_pending_approvals  # Pending approvals for organisations
-from api.routes import company_profile  # Company profile
-from api.routes import company_brands  # Company brand management
+from api.routes import superadmin_platform, admin_organisations, admin_companies, organisation_companies  
+from api.routes import pending_approvals  
+from api.routes import organisation_pending_approvals 
+from api.routes import company_profile 
+from api.routes import company_brands  
 from api.routes.organisations import brand_router, product_router
-from api.routes import exotel  # Webhooks for Exotel XML routing
+from api.routes import exotel  
 
 # Voice bot components
 from langchain_core.runnables import RunnableGenerator
@@ -63,6 +63,10 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.exception("Database connection failed. Exiting.")
         sys.exit(1)
+
+    # Initialize checkpointer at startup
+    from services.voice.llm import init_checkpointer
+    await init_checkpointer()
 
     logger.info("Services initialized")
     yield
@@ -111,9 +115,6 @@ app.include_router(company_profile.router, prefix="/api/company", tags=["Company
 app.include_router(company_brands.router, prefix="/api/company", tags=["Company Brands"])
 app.include_router(exotel.router, prefix="/api/exotel", tags=["Exotel Setup"])
 
-# ============================================================================
-# STATIC FILES FOR AUDIO SERVING (REQUIRED FOR EXOTEL <Play> TAG)
-# ============================================================================
 
 audio_dir = ROOT_DIR / "static" / "audio"
 audio_dir.mkdir(parents=True, exist_ok=True)
