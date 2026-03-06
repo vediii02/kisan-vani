@@ -236,7 +236,7 @@ async def get_dashboard_kpis(
     
     # Escalated cases
     escalated_result = await db.execute(
-        text("SELECT COUNT(*) FROM escalations WHERE status != 'resolved'")
+        text("SELECT COUNT(*) FROM escalations WHERE status != 'RESOLVED'")
     )
     escalated = escalated_result.scalar() or 0
     
@@ -919,7 +919,7 @@ async def get_audit_logs(
             entity_id=log.entity_id,
             organisation_id=log.organisation_id,
             severity=log.severity,
-            created_at=log.created_at.isoformat()
+            created_at=log.timestamp.isoformat()
         )
         for log in logs
     ]
