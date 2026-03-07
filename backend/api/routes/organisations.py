@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, Response, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
@@ -1416,6 +1416,7 @@ async def upload_products_csv(
     company_id: int = Form(...),
     brand_id: Optional[int] = Form(None),
     brand_name: Optional[str] = Form(None),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -1570,11 +1571,16 @@ async def upload_products_csv(
                     usage_instructions=str(row.get('usage_instructions', '')).strip() if row.get('usage_instructions') else None,
                     safety_precautions=str(row.get('safety_precautions', '')).strip() if row.get('safety_precautions') else None,
                     price_range=str(row.get('price_range', '')).strip() if row.get('price_range') else None,
+                    price=float(row['price']) if 'price' in row and row['price'] is not None and str(row['price']).strip() != '' else None,
                     is_active=str(row.get('is_active', 'true')).lower() in ('true', '1', 'yes'),
                     created_at=datetime.now(timezone.utc)
                 )
                 
                 db.add(product)
+                await db.flush() # Get ID for vectorization
+                from kb.loader import kb_loader
+                background_tasks.add_task(kb_loader.load_product_to_vector_db, product)
+                
                 success_count += 1
                 logger.info(f"✅ Row {idx}: Product added to session")
                 

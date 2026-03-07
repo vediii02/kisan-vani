@@ -16,7 +16,6 @@ class CompanyProfileResponse(BaseModel):
     name: str
     organisation_name: Optional[str] = None
     business_type: Optional[str] = None
-    brand_name: Optional[str] = None
     contact_person: Optional[str] = None
     phone: Optional[str] = None
     secondary_phone: Optional[str] = None
@@ -36,7 +35,6 @@ class CompanyProfileResponse(BaseModel):
 class CompanyProfileUpdate(BaseModel):
     name: Optional[str] = None
     business_type: Optional[str] = None
-    brand_name: Optional[str] = None
     contact_person: Optional[str] = None
     phone: Optional[str] = None
     secondary_phone: Optional[str] = None
@@ -83,7 +81,6 @@ async def get_company_profile(
         name=company.name,
         organisation_name=org_name,
         business_type=company.business_type,
-        brand_name=company.brand_name,
         contact_person=company.contact_person,
         phone=company.phone,
         secondary_phone=company.secondary_phone,
@@ -133,7 +130,6 @@ async def update_company_profile(
         id=company.id,
         name=company.name,
         business_type=company.business_type,
-        brand_name=company.brand_name,
         contact_person=company.contact_person,
         phone=company.phone,
         secondary_phone=company.secondary_phone,

@@ -67,10 +67,10 @@ export default function OrganisationCompanies() {
       toast.error('Login Email is required for login access');
       return;
     }
-    if (formData.email !== formData.login_email) {
-      toast.error('Login Email must be the same as Contact Email');
-      return;
-    }
+    // if (formData.email !== formData.login_email) {
+    //   toast.error('Login Email must be the same as Contact Email');
+    //   return;
+    // }
     if (!formData.password) {
       toast.error('Password is required for login access');
       return;
@@ -191,16 +191,6 @@ export default function OrganisationCompanies() {
     setFormData({
       name: company.name || '',
       business_type: company.business_type || '',
-      brand_name: company.brand_name || '',
-      contact_person: company.contact_person || '',
-      email: company.email || '',
-      phone: company.phone || '',
-      address: company.address || '',
-      gst_number: company.gst_number || '',
-      registration_number: company.registration_number || '',
-      status: company.status || 'active',
-      state: company.state || '',
-      city: company.city || '',
       pincode: company.pincode || '',
       notes: company.notes || ''
     });
@@ -211,7 +201,6 @@ export default function OrganisationCompanies() {
     setFormData({
       name: '',
       business_type: '',
-      brand_name: '',
       contact_person: '',
       email: '',
       phone: '',
@@ -231,7 +220,6 @@ export default function OrganisationCompanies() {
 
   const filteredCompanies = companies.filter(company =>
     company.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    company.brand_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     company.contact_person?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -257,7 +245,7 @@ export default function OrganisationCompanies() {
         <div className="flex items-center gap-2">
           <Search className="w-5 h-5 text-muted-foreground" />
           <Input
-            placeholder="Search companies by name, brand, or contact person..."
+            placeholder="Search companies by name or contact person..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="flex-1"
@@ -412,15 +400,6 @@ export default function OrganisationCompanies() {
                   required
                 />
               </div>
-              <div>
-                <Label htmlFor="brand_name">Brand Name</Label>
-                <Input
-                  id="brand_name"
-                  value={formData.brand_name}
-                  onChange={(e) => setFormData({ ...formData, brand_name: e.target.value })}
-                  placeholder="Trading name or brand"
-                />
-              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -433,9 +412,6 @@ export default function OrganisationCompanies() {
                   placeholder="e.g., Distribution, Manufacturing, Retailer"
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="contact_person">Contact Person</Label>
                 <Input
@@ -445,6 +421,9 @@ export default function OrganisationCompanies() {
                   placeholder="Manager name"
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="phone">Contact Phone</Label>
                 <Input
@@ -454,18 +433,17 @@ export default function OrganisationCompanies() {
                   placeholder="+91 1234567890"
                 />
               </div>
-            </div>
-
-            <div>
-              <Label htmlFor="email">Contact Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="contact@company.com"
-                required
-              />
+              <div>
+                <Label htmlFor="email">Contact Email *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="contact@company.com"
+                  required
+                />
+              </div>
             </div>
 
             <div>
@@ -566,13 +544,13 @@ export default function OrganisationCompanies() {
                 </p>
                 <div className="space-y-3">
                   <div>
-                    <Label htmlFor="login_email">Login Email * (This will be the username)</Label>
+                    <Label htmlFor="username">Username *</Label>
                     <Input
-                      id="login_email"
-                      type="email"
-                      value={formData.login_email}
-                      onChange={(e) => setFormData({ ...formData, login_email: e.target.value })}
-                      placeholder="company@example.com"
+                      id="username"
+                      type="text"
+                      value={formData.username}
+                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                      placeholder="Username"
                       required
                     />
                   </div>
@@ -589,7 +567,7 @@ export default function OrganisationCompanies() {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  💡 Company will login with: <strong>{formData.login_email || 'their email'}</strong>
+                  💡 Company will login with: <strong>{formData.username || 'their username'}</strong>
                 </p>
               </div>
             </div>
@@ -618,15 +596,6 @@ export default function OrganisationCompanies() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit_brand_name">Brand Name</Label>
-                <Input
-                  id="edit_brand_name"
-                  value={formData.brand_name}
-                  onChange={(e) => setFormData({ ...formData, brand_name: e.target.value })}
-                  placeholder="Trading name or brand"
                 />
               </div>
             </div>

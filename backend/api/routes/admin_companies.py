@@ -167,69 +167,68 @@ async def get_company(
     }
 
 
-# ============================================================================
-# POST: Create Company
-# ============================================================================
+from schemas.company import CompanyCreateWithAdmin
 
 @router.post("/companies")
 async def create_company(
-    company_data: dict,
+    company_input: CompanyCreateWithAdmin,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(verify_admin_role)
 ):
     """Create a new company (Admin only)"""
     
     # Verify organisation exists
-    org_query = select(Organisation).where(Organisation.id == company_data.get("organisation_id"))
+    org_query = select(Organisation).where(Organisation.id == company_input.organisation_id)
     org_result = await db.execute(org_query)
     org = org_result.scalar_one_or_none()
     
     if not org:
         raise HTTPException(status_code=404, detail="Organisation not found")
     
+    # Check if username exists
+    existing_user_result = await db.execute(select(User).where(User.username == company_input.username))
+    existing_user = existing_user_result.scalar_one_or_none()
+    
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already exists")
+
     try:
         # Create company
         new_company = Company(
-            name=company_data.get("name"),
-            organisation_id=company_data.get("organisation_id"),
-            email=company_data.get("email"),
-            phone=company_data.get("phone"),
-            address=company_data.get("address"),
-            contact_person=company_data.get("contact_person"),
-            status=company_data.get("status", "active"),
+            name=company_input.name,
+            organisation_id=company_input.organisation_id,
+            email=str(company_input.email) if company_input.email else None,
+            phone=company_input.phone,
+            address=company_input.address,
+            city=company_input.city,
+            state=company_input.state,
+            pincode=company_input.pincode,
+            contact_person=company_input.contact_person,
+            business_type=company_input.business_type,
+            gst_number=company_input.gst_number,
+            registration_number=company_input.registration_number,
+            description=company_input.description,
+            status=company_input.status,
             created_at=datetime.now(timezone.utc)
         )
         
         db.add(new_company)
+        await db.flush() # Get company ID before creating user
+
+        # Create company admin user (now mandatory)
+        new_user = User(
+            username=company_input.username,
+            email=str(company_input.email) if company_input.email else f"{company_input.username}@system.com",
+            hashed_password=get_password_hash(company_input.password),
+            full_name=new_company.name,
+            role="company",
+            organisation_id=new_company.organisation_id,
+            company_id=new_company.id,
+            status="active"
+        )
+        db.add(new_user)
         await db.commit()
         await db.refresh(new_company)
-
-        # Create company admin user if password is provided
-        admin_user_data = None
-        if company_data.get("password"):
-            username = company_data.get("username") or f"admin_{new_company.name.lower().replace(' ', '_')}"
-            
-            # Check if username exists
-            existing_user_result = await db.execute(select(User).where(User.username == username))
-            existing_user = existing_user_result.scalar_one_or_none()
-            
-            if not existing_user:
-                new_user = User(
-                    username=username,
-                    email=company_data.get("email") or f"{username}@{new_company.name.lower().replace(' ', '')}.com",
-                    hashed_password=get_password_hash(company_data["password"]),
-                    full_name=new_company.name,
-                    role="company",
-                    organisation_id=new_company.organisation_id,
-                    company_id=new_company.id,
-                    is_active=True
-                )
-                db.add(new_user)
-                await db.commit()
-                admin_user_data = {
-                    "username": new_user.username,
-                    "password": company_data["password"]
-                }
         
         return {
             "success": True,
@@ -239,7 +238,10 @@ async def create_company(
                 "name": new_company.name,
                 "organisation_id": new_company.organisation_id
             },
-            "admin_user": admin_user_data
+            "admin_user": {
+                "username": new_user.username,
+                "password": company_input.password # Returning password for confirmation possibly? Keep consistent with old logic
+            }
         }
     
     except Exception as e:
@@ -251,10 +253,12 @@ async def create_company(
 # PUT: Update Company
 # ============================================================================
 
+from schemas.company import CompanyUpdate
+
 @router.put("/companies/{company_id}")
 async def update_company(
     company_id: int,
-    company_data: dict,
+    company_input: CompanyUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(verify_admin_role)
 ):
@@ -268,26 +272,21 @@ async def update_company(
         raise HTTPException(status_code=404, detail="Company not found")
     
     try:
-        # Update fields
-        if "name" in company_data:
-            company.name = company_data["name"]
-        if "organisation_id" in company_data:
+        # Update fields using schema
+        update_data = company_input.dict(exclude_unset=True)
+        
+        if "organisation_id" in update_data:
             # Verify new organisation exists
-            org_query = select(Organisation).where(Organisation.id == company_data["organisation_id"])
+            org_query = select(Organisation).where(Organisation.id == update_data["organisation_id"])
             org_result = await db.execute(org_query)
             if not org_result.scalar_one_or_none():
                 raise HTTPException(status_code=404, detail="Organisation not found")
-            company.organisation_id = company_data["organisation_id"]
-        if "email" in company_data:
-            company.email = company_data["email"]
-        if "phone" in company_data:
-            company.phone = company_data["phone"]
-        if "address" in company_data:
-            company.address = company_data["address"]
-        if "contact_person" in company_data:
-            company.contact_person = company_data["contact_person"]
-        if "status" in company_data:
-            company.status = company_data["status"]
+
+        for field, value in update_data.items():
+            if field == "email" and value:
+                setattr(company, field, str(value))
+            else:
+                setattr(company, field, value)
         
         company.updated_at = datetime.now(timezone.utc)
         
@@ -297,13 +296,13 @@ async def update_company(
         )
         admin_user = admin_user_result.scalars().first()
         if admin_user:
-            if "name" in company_data:
-                admin_user.full_name = company_data["name"]
-            if "email" in company_data and company_data["email"] != admin_user.email:
-                admin_user.email = company_data["email"]
-                admin_user.username = company_data["email"]
-            if "status" in company_data:
-                admin_user.status = company_data["status"]
+            if company_input.name:
+                admin_user.full_name = company_input.name
+            if company_input.email and str(company_input.email) != admin_user.email:
+                admin_user.email = str(company_input.email)
+                admin_user.username = str(company_input.email)
+            if company_input.status:
+                admin_user.status = company_input.status
             db.add(admin_user)
             
         await db.commit()

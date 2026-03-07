@@ -38,13 +38,13 @@ export default function Sidebar() {
     { path: '/superadmin/companies', icon: Building2, label: 'Companies', testid: 'nav-admin-companies' },
     { path: '/superadmin/brands', icon: Tag, label: 'Brands', testid: 'nav-admin-brands' },
     { path: '/superadmin/products', icon: Package, label: 'Products', testid: 'nav-admin-products' },
-    { path: '/superadmin/platform', icon: Globe, label: 'Platform Dashboard', testid: 'nav-admin-platform' },
+    // { path: '/superadmin/platform', icon: Globe, label: 'Platform Dashboard', testid: 'nav-admin-platform' },
     { path: '/superadmin/call-analytics', icon: BarChart3, label: 'Call Analytics', testid: 'nav-admin-analytics' },
     { path: '/superadmin/ai-management', icon: Brain, label: 'AI Management', testid: 'nav-admin-ai' },
 
     // { path: '/superadmin/product-safety', icon: AlertTriangle, label: 'Product Safety', testid: 'nav-admin-safety' },
     { path: '/superadmin/audit-logs', icon: FileText, label: 'Audit Logs', testid: 'nav-admin-audit' },
-    { path: '/superadmin/kb-governance', icon: Database, label: 'KB Governance', testid: 'nav-admin-kb' },
+    // { path: '/superadmin/kb-governance', icon: Database, label: 'KB Governance', testid: 'nav-admin-kb' },
     { path: '/superadmin/settings', icon: Settings, label: 'Settings', testid: 'nav-admin-settings' },
   ];
 

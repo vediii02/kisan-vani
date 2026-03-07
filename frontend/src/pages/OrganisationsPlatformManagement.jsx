@@ -283,13 +283,13 @@ export default function OrganisationsPlatformManagement() {
         <Card className="p-5 border-none shadow-sm bg-purple-50/50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-600/70 text-sm font-medium">Total Brands</p>
+              <p className="text-purple-600/70 text-sm font-medium">Inactive Orgs</p>
               <p className="text-3xl font-bold text-purple-900">
-                {organisations.reduce((sum, org) => sum + (org.brand_count || 0), 0)}
+                {organisations.filter(o => !o.is_active).length}
               </p>
             </div>
             <div className="p-3 bg-purple-100 rounded-lg">
-              <Package className="h-6 w-6 text-purple-600" />
+              <AlertTriangle className="h-6 w-6 text-purple-600" />
             </div>
           </div>
         </Card>
@@ -307,9 +307,7 @@ export default function OrganisationsPlatformManagement() {
                 <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Brands
-                </th>
+
                 <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Calls
                 </th>
@@ -335,15 +333,13 @@ export default function OrganisationsPlatformManagement() {
 
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${org.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                        org.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                      org.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
                       }`}>
                       {org.status === 'rejected' ? 'Rejected' : org.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </td>
 
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <span className="text-sm font-medium text-gray-900">{org.brand_count || 0}</span>
-                  </td>
+
 
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <span className="text-sm font-medium text-gray-900">{org.call_count || 0}</span>
@@ -489,6 +485,39 @@ export default function OrganisationsPlatformManagement() {
                 placeholder="Brief description about the organisation..."
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  State
+                </Label>
+                <Input
+                  type="text"
+                  placeholder="State"
+                  value={formData.state}
+                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  City
+                </Label>
+                <Input
+                  placeholder="City"
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>Pincode</Label>
+              <Input
+                placeholder="Pincode"
+                value={formData.pincode}
+                onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
               />
             </div>
 

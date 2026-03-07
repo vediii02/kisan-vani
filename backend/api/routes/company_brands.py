@@ -255,6 +255,7 @@ async def get_company_products(
                 usage_instructions=product.usage_instructions,
                 safety_precautions=product.safety_precautions,
                 price_range=product.price_range,
+                price=product.price,
                 is_active=product.is_active,
                 created_at=product.created_at.isoformat() if product.created_at else None
             )
@@ -537,6 +538,16 @@ async def bulk_upload_products(
                 errors.append(f"Row {index + 1}: Product '{product_name}' already exists.")
                 continue
 
+            # Extract price safely
+            price_val = None
+            if 'price' in df.columns and pd.notna(row.get('price')):
+                try:
+                    price_str = str(row['price']).strip()
+                    if price_str != '':
+                        price_val = float(price_str)
+                except (ValueError, TypeError):
+                    pass
+
             # Create product
             product_data = {
                 'name': product_name,
@@ -549,6 +560,7 @@ async def bulk_upload_products(
                 'usage_instructions': str(row.get('usage_instructions', '')).strip() if pd.notna(row.get('usage_instructions')) else None,
                 'safety_precautions': str(row.get('safety_precautions', '')).strip() if pd.notna(row.get('safety_precautions')) else None,
                 'price_range': str(row.get('price_range', '')).strip() if pd.notna(row.get('price_range')) else None,
+                'price': price_val,
                 'is_active': True if pd.isna(row.get('is_active')) or str(row.get('is_active')).lower() == 'true' else False,
                 'organisation_id': company.organisation_id,
                 'company_id': target_company_id,

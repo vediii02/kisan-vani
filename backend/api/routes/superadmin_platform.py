@@ -444,6 +444,8 @@ async def create_organisation(
                             category=product_data.get('category', 'other'),
                             sub_category=product_data.get('sub_category'),
                             description=product_data.get('description'),
+                            price_range=product_data.get('price_range'),
+                            price=product_data.get('price'),
                             is_active=True
                         )
                         db.add(new_product)
@@ -456,7 +458,6 @@ async def create_organisation(
                     'imported': imported_count,
                     'total_found': scrape_result['total_found'],
                     'brand_id': new_brand.id,
-                    'brand_name': brand_name
                 }
         except Exception as e:
             print(f"Auto-import failed: {e}")
@@ -1191,6 +1192,8 @@ async def import_products_from_website(
                 dosage=product_data.get('dosage'),
                 usage_instructions=product_data.get('usage_instructions'),
                 safety_precautions=product_data.get('safety_precautions'),
+                price_range=product_data.get('price_range'),
+                price=product_data.get('price'),
                 is_active=True
             )
             

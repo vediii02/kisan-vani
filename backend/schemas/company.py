@@ -6,7 +6,6 @@ class CompanyBase(BaseModel):
     organisation_id: int
     name: str
     business_type: Optional[str] = None
-    brand_name: Optional[str] = None
     contact_person: Optional[str] = None
     phone: Optional[str] = None
     secondary_phone: Optional[str] = None
@@ -25,10 +24,13 @@ class CompanyBase(BaseModel):
 class CompanyCreate(CompanyBase):
     pass
 
+class CompanyCreateWithAdmin(CompanyCreate):
+    username: str
+    password: str
+
 class CompanyUpdate(BaseModel):
     name: Optional[str] = None
     business_type: Optional[str] = None
-    brand_name: Optional[str] = None
     contact_person: Optional[str] = None
     phone: Optional[str] = None
     secondary_phone: Optional[str] = None

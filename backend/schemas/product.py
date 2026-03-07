@@ -16,6 +16,7 @@ class ProductBase(BaseModel):
     usage_instructions: Optional[str] = None
     safety_precautions: Optional[str] = None
     price_range: Optional[str] = None
+    price: Optional[float] = None
     is_active: bool = True
 
 
@@ -46,6 +47,8 @@ class ProductResponse(ProductBase):
     organisation_id: int
     company_id: Optional[int] = None
     brand_id: Optional[int] = None
+    brand_name: Optional[str] = None
+    company_name: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 

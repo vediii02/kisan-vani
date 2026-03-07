@@ -86,6 +86,7 @@ const OrganisationProducts = () => {
     usage_instructions: '',
     safety_precautions: '',
     price_range: '',
+    price: '',
     is_active: true
   });
 
@@ -243,18 +244,35 @@ const OrganisationProducts = () => {
       usage_instructions: '',
       safety_precautions: '',
       price_range: '',
+      price: '',
       is_active: true
     });
   };
 
   const handleEdit = (product) => {
     setEditingProduct(product);
+
+    // Normalize category and sub-category
+    let selectedCategory = product.category || '';
+    let selectedSubCategory = product.sub_category || '';
+
+    // If the category is actually a sub-category, find its parent
+    if (selectedCategory && !CATEGORY_OPTIONS[selectedCategory]) {
+      for (const [parentCat, subCats] of Object.entries(CATEGORY_OPTIONS)) {
+        if (subCats.includes(selectedCategory)) {
+          selectedSubCategory = selectedCategory;
+          selectedCategory = parentCat;
+          break;
+        }
+      }
+    }
+
     setFormData({
       company_id: product.company_id?.toString() || '',
       brand_id: product.brand_id?.toString() || '',
       name: product.name,
-      category: product.category || '',
-      sub_category: product.sub_category || '',
+      category: selectedCategory,
+      sub_category: selectedSubCategory,
       description: product.description || '',
       target_crops: product.target_crops || '',
       target_problems: product.target_problems || '',
@@ -262,6 +280,7 @@ const OrganisationProducts = () => {
       usage_instructions: product.usage_instructions || '',
       safety_precautions: product.safety_precautions || '',
       price_range: product.price_range || '',
+      price: product.price || '',
       is_active: product.is_active
     });
     setShowAddModal(true);
@@ -415,6 +434,12 @@ const OrganisationProducts = () => {
                   Category
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Price
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Target Crops
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -445,6 +470,12 @@ const OrganisationProducts = () => {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {product.category}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {product.price ? `₹${product.price}` : (product.price_range || '-')}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500 text-truncate max-w-xs">
+                    {product.target_crops || '-'}
                   </td>
                   <td className="px-6 py-4">
                     {product.is_active ? (
@@ -609,14 +640,25 @@ const OrganisationProducts = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Price Range *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    placeholder="e.g., 450"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Price Range</label>
                   <input
                     type="text"
                     value={formData.price_range}
                     onChange={(e) => setFormData({ ...formData, price_range: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    placeholder="e.g., ₹500-1000"
-                    required
+                    placeholder="e.g., 400-500"
                   />
                 </div>
               </div>
@@ -743,7 +785,11 @@ const OrganisationProducts = () => {
                 </label>
                 <select
                   value={uploadCompanyId}
-                  onChange={(e) => setUploadCompanyId(e.target.value)}
+                  onChange={(e) => {
+                    const companyId = e.target.value;
+                    setUploadCompanyId(companyId);
+                    setBrandName(''); // Reset brand selection when company changes
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   disabled={uploading}
                   required
@@ -760,23 +806,27 @@ const OrganisationProducts = () => {
                 </p>
               </div>
 
-              {/* Default Brand Name
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Default Brand Name (Optional)
+                  Select Brand (Optional)
                 </label>
-                <input
-                  type="text"
+                <select
                   value={brandName}
                   onChange={(e) => setBrandName(e.target.value)}
-                  placeholder="e.g., My Brand"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  disabled={uploading}
-                />
+                  disabled={!uploadCompanyId || uploading}
+                >
+                  <option value="">Select Brand (Optional)</option>
+                  {brands
+                    .filter(b => b.company_id === parseInt(uploadCompanyId))
+                    .map(brand => (
+                      <option key={brand.id} value={brand.name}>{brand.name}</option>
+                    ))}
+                </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  If your CSV doesn't have 'brand_name' column, this will be used
+                  If your CSV doesn't have 'brand_name' column, this selection will be used
                 </p>
-              </div> */}
+              </div>
 
               {/* File Upload */}
               <div>

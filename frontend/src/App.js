@@ -29,8 +29,6 @@ import CompanySettings from '@/pages/CompanySettings';
 import SuperAdminCompanies from '@/pages/SuperAdminCompanies';
 import SuperAdminCallAnalytics from '@/pages/SuperAdminCallAnalytics';
 import SuperAdminAIManagement from '@/pages/SuperAdminAIManagement';
-import SuperAdminPlatformDashboard from '@/pages/SuperAdminPlatformDashboard';
-import UserManagement from '@/pages/UserManagement';
 import PendingApprovals from '@/pages/PendingApprovals';
 import OrganisationPendingApprovals from '@/pages/OrganisationPendingApprovals';
 import SuperAdminSettings from '@/pages/SuperAdminSettings';
@@ -75,16 +73,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/superadmin/users"
-              element={
-                <ProtectedRoute requiredRole="superadmin">
-                  <AuthenticatedLayout>
-                    <UserManagement />
-                  </AuthenticatedLayout>
-                </ProtectedRoute>
-              }
-            />
+
             <Route
               path="/superadmin/organisations"
               element={
@@ -147,7 +136,7 @@ function App() {
             />
 
 
-            {/* Super Admin Platform Routes */}
+            {/* Super Admin Platform Routes
             <Route
               path="/superadmin/platform"
               element={
@@ -157,7 +146,7 @@ function App() {
                   </AuthenticatedLayout>
                 </ProtectedRoute>
               }
-            />
+            /> */}
 
 
             {/* Organisation Role Routes */}
@@ -334,7 +323,8 @@ function App() {
                   </AuthenticatedLayout>
                 </ProtectedRoute>
               }
-            />            <Route
+            />
+            {/* <Route
               path="/superadmin/kb-governance"
               element={
                 <ProtectedRoute requiredRole="superadmin">
@@ -343,7 +333,7 @@ function App() {
                   </AuthenticatedLayout>
                 </ProtectedRoute>
               }
-            />
+            /> */}
             <Route
               path="/superadmin/settings"
               element={

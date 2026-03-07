@@ -88,9 +88,14 @@ export default function Register() {
 
     const { confirmPassword, ...registerData } = formData;
 
-    // Clean up empty optional fields to avoid 422 validation errors
+    // Clean up empty optional fields and fix types to match backend schema
     const cleanData = { ...registerData };
-    if (!cleanData.organisation_id) delete cleanData.organisation_id;
+    if (!cleanData.organisation_id) {
+      delete cleanData.organisation_id;
+    } else {
+      // Backend expects int, but Select gives us a string
+      cleanData.organisation_id = parseInt(cleanData.organisation_id, 10);
+    }
     if (!cleanData.organisation_name) delete cleanData.organisation_name;
     if (!cleanData.company_name) delete cleanData.company_name;
 

@@ -90,6 +90,7 @@ export default function CompanyProductsPage() {
     usage_instructions: "",
     safety_precautions: "",
     price_range: "",
+    price: "",
     is_active: true,
   });
 
@@ -297,17 +298,34 @@ export default function CompanyProductsPage() {
       usage_instructions: "",
       safety_precautions: "",
       price_range: "",
+      price: "",
       is_active: true,
     });
   };
 
   const openEditModal = (product) => {
     setEditingProduct(product);
+
+    // Normalize category and sub-category
+    let selectedCategory = product.category || "";
+    let selectedSubCategory = product.sub_category || "";
+
+    // If the category is actually a sub-category, find its parent
+    if (selectedCategory && !CATEGORY_OPTIONS[selectedCategory]) {
+      for (const [parentCat, subCats] of Object.entries(CATEGORY_OPTIONS)) {
+        if (subCats.includes(selectedCategory)) {
+          selectedSubCategory = selectedCategory;
+          selectedCategory = parentCat;
+          break;
+        }
+      }
+    }
+
     setFormData({
       brand_id: product.brand_id || "",
       name: product.name || "",
-      category: product.category || "",
-      sub_category: product.sub_category || "",
+      category: selectedCategory,
+      sub_category: selectedSubCategory,
       description: product.description || "",
       target_crops: product.target_crops || "",
       target_problems: product.target_problems || "",
@@ -315,6 +333,7 @@ export default function CompanyProductsPage() {
       usage_instructions: product.usage_instructions || "",
       safety_precautions: product.safety_precautions || "",
       price_range: product.price_range || "",
+      price: product.price || "",
       is_active: product.is_active !== undefined ? product.is_active : true,
     });
     setShowModal(true);
@@ -330,6 +349,7 @@ export default function CompanyProductsPage() {
       "target_crops",
       "target_problems",
       "dosage",
+      "price",
       "price_range",
       "usage_instructions",
       "safety_precautions",
@@ -345,6 +365,7 @@ export default function CompanyProductsPage() {
       "Wheat;Rice;Corn",
       "Insects;Mites",
       "2-3ml per liter water",
+      "450",
       "400-500",
       "Dilute 2-3ml in 1 liter water and spray",
       "Use gloves and mask; Keep away from children",
@@ -499,6 +520,9 @@ export default function CompanyProductsPage() {
                   Brand
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
+                  Price
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
                   Target Crops
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
@@ -523,6 +547,9 @@ export default function CompanyProductsPage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {product.brand_name || "-"}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {product.price ? `₹${product.price}` : (product.price_range || "-")}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {product.target_crops || "-"}
@@ -672,16 +699,16 @@ export default function CompanyProductsPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Target Crops
+                    Price
                   </label>
                   <input
-                    type="text"
-                    value={formData.target_crops}
+                    type="number"
+                    value={formData.price}
                     onChange={(e) =>
-                      setFormData({ ...formData, target_crops: e.target.value })
+                      setFormData({ ...formData, price: e.target.value })
                     }
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="e.g., Wheat, Corn, Rice"
+                    placeholder="e.g., 100"
                   />
                 </div>
 
@@ -723,13 +750,13 @@ export default function CompanyProductsPage() {
                     Price Range *
                   </label>
                   <input
-                    type="text"
+                    type="number"
                     value={formData.price_range}
                     onChange={(e) =>
                       setFormData({ ...formData, price_range: e.target.value })
                     }
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="e.g., $10-$20 per unit"
+                    placeholder="e.g., 100-200"
                     required
                   />
                 </div>

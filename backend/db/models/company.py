@@ -21,7 +21,6 @@ class Company(Base):
     # Company Details
     name = Column(String(200), nullable=False)
     business_type = Column(String(100), nullable=True)  # Retailer, Distributor, Manufacturer, etc.
-    brand_name = Column(String(200), nullable=True)  # Optional brand/trading name
     
     # Contact Information
     contact_person = Column(String(200), nullable=True)
@@ -67,8 +66,8 @@ class Company(Base):
     # One company has many operators (users with company_id)
     # One company has many products
     
-    # Relationship to users
-    users = relationship("User", back_populates="company", cascade="all, delete-orphan")
+    # Relationship to users - Deleting company unlinks users but keeps them
+    users = relationship("User", back_populates="company")
 
     # Relationship to organisation
     organisation = relationship("Organisation", back_populates="companies")

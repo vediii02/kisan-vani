@@ -1,6 +1,6 @@
 # db/models/product.py
 
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from db.base import Base
@@ -11,7 +11,7 @@ class Product(Base):
     id = Column(Integer, primary_key=True, index=True)
     organisation_id = Column(Integer, ForeignKey("organisations.id", ondelete="CASCADE"), nullable=False, index=True)
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)  # Products belong to companies
-    brand_id = Column(Integer, ForeignKey("brands.id", ondelete="SET NULL"), nullable=True)
+    brand_id = Column(Integer, ForeignKey("brands.id", ondelete="CASCADE"), nullable=True)
     name = Column(String(200), nullable=False)
     category = Column(String(100), nullable=False)  # pesticide, fertilizer, seed, equipment
     sub_category = Column(String(100), nullable=True)  # insecticide, fungicide, herbicide, etc
@@ -22,6 +22,7 @@ class Product(Base):
     usage_instructions = Column(Text, nullable=True)
     safety_precautions = Column(Text, nullable=True)
     price_range = Column(String(100), nullable=True)
+    price = Column(Float, nullable=True)
     is_active = Column(Boolean, default=True)
     
     created_at = Column(

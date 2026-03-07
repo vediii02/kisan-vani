@@ -33,12 +33,22 @@ class UserRegister(BaseModel):
     organisation_id: Optional[int] = None
     company_name: Optional[str] = None
 
-    @field_validator('organisation_id', 'organisation_name', 'company_name', mode='before')
+    @field_validator('organisation_name', 'company_name', mode='before')
     @classmethod
     def empty_string_to_none(cls, v: Any) -> Any:
         if isinstance(v, str) and v.strip() == "":
             return None
         return v
+
+    @field_validator('organisation_id', mode='before')
+    @classmethod
+    def coerce_organisation_id(cls, v: Any) -> Any:
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            return None
+        try:
+            return int(v)
+        except (ValueError, TypeError):
+            return v
 
 class UserLogin(BaseModel):
     username: str
@@ -158,7 +168,6 @@ async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
             name=user.company_name,
             organisation_id=organisation.id,
             business_type="Agriculture",
-            brand_name=user.company_name,
             contact_person=user.full_name,
             email=user.email,
             status="pending",

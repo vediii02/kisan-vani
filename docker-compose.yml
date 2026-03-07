@@ -75,10 +75,10 @@ services:
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/api/health"]
-      interval: 10s
-      timeout: 5s
+      interval: 15s
+      timeout: 10s
       retries: 5
-      start_period: 10s
+      start_period: 40s
 
     networks:
       - kisanvani_network
@@ -105,6 +105,12 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 3001"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
     networks:
       - kisanvani_network
 

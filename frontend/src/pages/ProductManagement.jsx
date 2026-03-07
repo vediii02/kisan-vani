@@ -145,13 +145,29 @@ export default function ProductManagement() {
   const handleOpenDialog = (product = null) => {
     if (product) {
       setEditingProduct(product);
+
+      // Normalize category and sub-category
+      let selectedCategory = product.category || '';
+      let selectedSubCategory = product.sub_category || '';
+
+      // If the category is actually a sub-category, find its parent
+      if (selectedCategory && !CATEGORY_OPTIONS[selectedCategory]) {
+        for (const [parentCat, subCats] of Object.entries(CATEGORY_OPTIONS)) {
+          if (subCats.includes(selectedCategory)) {
+            selectedSubCategory = selectedCategory;
+            selectedCategory = parentCat;
+            break;
+          }
+        }
+      }
+
       setFormData({
         name: product.name || '',
         organisation_id: product.organisation_id?.toString() || '',
         company_id: product.company_id?.toString() || '',
         brand_id: product.brand_id?.toString() || '',
-        category: product.category || '',
-        sub_category: product.sub_category || '',
+        category: selectedCategory,
+        sub_category: selectedSubCategory,
         description: product.description || '',
         target_crops: product.target_crops || '',
         target_problems: product.target_problems || '',
@@ -841,9 +857,10 @@ export default function ProductManagement() {
                       <Label htmlFor="price_range">Price Range *</Label>
                       <Input
                         id="price_range"
+                        type="number"
                         value={formData.price_range}
                         onChange={(e) => setFormData({ ...formData, price_range: e.target.value })}
-                        placeholder="e.g., ₹500-1000"
+                        placeholder="e.g., 100-200"
                         required
                       />
                     </div>

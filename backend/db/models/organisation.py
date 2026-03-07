@@ -45,8 +45,8 @@ class Organisation(Base):
         cascade="all, delete-orphan"
     )
     
-    # Relationship to users
-    users = relationship("User", back_populates="organisation", cascade="all, delete-orphan")
+    # Relationship to users - Deleting organisation unlinks users but keeps them
+    users = relationship("User", back_populates="organisation")
 
     # Relationship to companies
     companies = relationship("Company", back_populates="organisation", cascade="all, delete-orphan")

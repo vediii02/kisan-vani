@@ -88,13 +88,12 @@ export const adminAPI = {
 // Super Admin API
 // -------------------------------
 export const superAdminAPI = {
-  getUsers: (skip = 0, limit = 100) => api.get(`/superadmin/users?skip=${skip}&limit=${limit}`),
-  getUser: (userId) => api.get(`/superadmin/users/${userId}`),
-  createUser: (userData) => api.post('/superadmin/users', userData),
-  updateUser: (userId, userData) => api.put(`/superadmin/users/${userId}`, userData),
-  deleteUser: (userId) => api.delete(`/superadmin/users/${userId}`),
-  resetPassword: (userId, newPassword) =>
-    api.post(`/superadmin/users/${userId}/reset-password`, { new_password: newPassword }),
+  // getUser: (userId) => api.get(`/superadmin/users/${userId}`),
+  // createUser: (userData) => api.post('/superadmin/users', userData),
+  // updateUser: (userId, userData) => api.put(`/superadmin/users/${userId}`, userData),
+  // deleteUser: (userId) => api.delete(`/superadmin/users/${userId}`),
+  // resetPassword: (userId, newPassword) =>
+  //   api.post(`/superadmin/users/${userId}/reset-password`, { new_password: newPassword }),
   getStats: () => api.get('/superadmin/dashboard/stats'),
 };
 

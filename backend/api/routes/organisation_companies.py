@@ -28,7 +28,6 @@ router = APIRouter(prefix="/organisation/companies", tags=["Organisation Admin -
 class CompanyCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=200)
     business_type: Optional[str] = Field(None, max_length=100)
-    brand_name: Optional[str] = Field(None, max_length=200)
     contact_person: Optional[str] = Field(None, max_length=200)
     phone: Optional[str] = Field(None, max_length=20)
     email: Optional[EmailStr] = None
@@ -46,7 +45,6 @@ class CompanyCreate(BaseModel):
 class CompanyUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=200)
     business_type: Optional[str] = None
-    brand_name: Optional[str] = None
     contact_person: Optional[str] = None
     phone: Optional[str] = None
     email: Optional[EmailStr] = None
@@ -63,7 +61,6 @@ class CompanyResponse(BaseModel):
     organisation_id: int
     name: str
     business_type: Optional[str]
-    brand_name: Optional[str]
     contact_person: Optional[str]
     phone: Optional[str]
     email: Optional[str]
@@ -171,7 +168,6 @@ async def get_companies(
             organisation_id=company.organisation_id,
             name=company.name,
             business_type=company.business_type,
-            brand_name=company.brand_name,
             contact_person=company.contact_person,
             phone=company.phone,
             email=company.email,
@@ -229,7 +225,6 @@ async def get_company(
         organisation_id=company.organisation_id,
         name=company.name,
         business_type=company.business_type,
-        brand_name=company.brand_name,
         contact_person=company.contact_person,
         phone=company.phone,
         email=company.email,
@@ -287,7 +282,6 @@ async def create_company(
             organisation_id=org_id,
             name=company_data.name,
             business_type=company_data.business_type,
-            brand_name=company_data.brand_name,
             contact_person=company_data.contact_person,
             phone=company_data.phone,
             email=company_data.email,
@@ -347,7 +341,6 @@ async def create_company(
             organisation_id=new_company.organisation_id,
             name=new_company.name,
             business_type=new_company.business_type,
-            brand_name=new_company.brand_name,
             contact_person=new_company.contact_person,
             phone=new_company.phone,
             email=new_company.email,
@@ -426,7 +419,6 @@ async def update_company(
         organisation_id=company.organisation_id,
         name=company.name,
         business_type=company.business_type,
-        brand_name=company.brand_name,
         contact_person=company.contact_person,
         phone=company.phone,
         email=company.email,
