@@ -43,11 +43,27 @@ async def main():
             stream_mode="messages"
         )
         
-        async for message, metadata in stream:
+        async for chunk, metadata in stream:
+            # LangGraph can emit node names (str) or a list/dict of messages during streaming
+            if isinstance(chunk, str):
+                continue
+            
+            message = chunk
+            if isinstance(chunk, dict):
+                # Sometimes it emits the whole state update dict
+                continue
+
+            # Only listen to messages from our actual speech nodes
+            valid_nodes = ["greeting", "profiling", "diagnostic", "advisory"]
+            if not metadata or metadata.get("langgraph_node") not in valid_nodes:
+                continue
+                
             is_ai = hasattr(message, 'content') and 'ai' in message.type.lower()
             if is_ai and message.content:
                 # Filter out tools
                 is_tool = getattr(message, "tool_calls", None) or getattr(message, "tool_call_chunks", None)
+                if getattr(message, "chunk", None) == False: 
+                    continue # deduplicate final message prints if it streams chunks
                 if not is_tool:
                     print(message.content, end="", flush=True)
             

@@ -9,30 +9,18 @@ from db.base import AsyncSessionLocal
 from db.models.kb_entry import KBEntry
 from db.models.knowledge_base import KnowledgeEntry
 from db.models.product import Product
+from services.voice.llm import fetch_embedding
 
 logger = logging.getLogger(__name__)
 
 class KBLoader:
     def __init__(self):
-        self.openai_client = None
-
-    def _get_openai_client(self):
-        if not self.openai_client:
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                logger.error("OPENAI_API_KEY is not set. Cannot generate embeddings.")
-                return None
-            self.openai_client = AsyncOpenAI(api_key=api_key)
-        return self.openai_client
+        pass
     
     async def load_entry_to_vector_db(self, kb_entry: KBEntry):
-        """Generates OpenAI embedding and saves it to knowledge_entries table."""
+        """Generates embedding and saves it to knowledge_entries table."""
         if not kb_entry.is_approved or kb_entry.is_banned:
             logger.warning(f"Skipping KB entry {kb_entry.id} - not approved or banned")
-            return
-        
-        client = self._get_openai_client()
-        if not client:
             return
 
         try:
@@ -48,12 +36,8 @@ class KBLoader:
             embed_text = "\n".join([p for p in content_parts if p])
             full_content_text = f"Title: {kb_entry.title}\n{kb_entry.content}\nSolution: {kb_entry.solution_steps or ''}"
 
-            logger.info(f"Generating OpenAI embedding for KB entry {kb_entry.id}")
-            response = await client.embeddings.create(
-                input=embed_text,
-                model="text-embedding-3-small",
-            )
-            embedding_vector = response.data[0].embedding
+            logger.info(f"Generating embedding for KB entry {kb_entry.id}")
+            embedding_vector = await fetch_embedding(embed_text)
             source_id = f"kb_entry:{kb_entry.id}"
 
             async with AsyncSessionLocal() as db:
@@ -92,13 +76,9 @@ class KBLoader:
             logger.error(f"Error generating or saving embedding for kb_entry {kb_entry.id}: {e}")
 
     async def load_product_to_vector_db(self, product: Product):
-        """Generates OpenAI embedding for a product and saves it to knowledge_entries table."""
+        """Generates embedding for a product and saves it to knowledge_entries table."""
         if getattr(product, 'is_active', True) is False:
             logger.warning(f"Skipping product {product.id} - not active")
-            return
-            
-        client = self._get_openai_client()
-        if not client:
             return
 
         try:
@@ -117,12 +97,8 @@ class KBLoader:
             # Combine info for the 'content' field that the AI reads
             summary_content = "\n".join(content_parts)
 
-            logger.info(f"Generating OpenAI embedding for Product {product.id} ({product.name})")
-            response = await client.embeddings.create(
-                input=embed_text,
-                model="text-embedding-3-small",
-            )
-            embedding_vector = response.data[0].embedding
+            logger.info(f"Generating embedding for Product {product.id} ({product.name})")
+            embedding_vector = await fetch_embedding(embed_text)
             source_id = f"product:{product.id}"
 
             async with AsyncSessionLocal() as db:

@@ -12,6 +12,7 @@ import websockets
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from services.voice.events import VoiceAgentEvent, STTChunkEvent, STTOutputEvent, BargeInEvent, CallStartedEvent
 from services.voice.logger import setup_logger
+from services.config_service import get_platform_config
 
 logger = setup_logger("stt_node")
 
@@ -162,22 +163,80 @@ async def stt_stream(
     # Without this, agent_stream never starts because silence produces no STT events
     yield CallStartedEvent.create()
 
-    stt = SarvamSTT(sample_rate=8000)
-    
-    async def send_audio_task():
-        try:
-            async for chunk in audio_stream:
-                await stt.send_audio(chunk)
-        except Exception as e:
-            logger.error(f"Task Error: {e}", exc_info=True)
-        finally:
-            await stt.close()
+    config = await get_platform_config()
+    stt_provider = config.get("stt_provider", "sarvam")
 
-    sender = asyncio.create_task(send_audio_task())
-    
-    try:
-        async for event in stt.receive_events():
-            yield event
-    finally:
-        sender.cancel()
-        await stt.close()
+    if stt_provider == "google":
+        logger.info("Using Google STT")
+        from google.cloud import speech
+
+        client = speech.SpeechAsyncClient()
+        config_req = speech.RecognitionConfig(
+            encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+            sample_rate_hertz=8000,
+            language_code="hi-IN",
+            enable_automatic_punctuation=True,
+        )
+        streaming_config = speech.StreamingRecognitionConfig(
+            config=config_req, interim_results=True
+        )
+
+        # We must bridge the async generator `audio_stream` to what Google expects
+        async def request_generator():
+            async for chunk in audio_stream:
+                if chunk:
+                    yield speech.StreamingRecognizeRequest(audio_content=chunk)
+        
+        try:
+            responses = await client.streaming_recognize(
+                requests=request_generator(),
+                config=streaming_config,
+            )
+            
+            barge_in_threshold = int(os.getenv("BARGE_IN_THRESHOLD", "10"))
+            
+            async for response in responses:
+                if not response.results:
+                    continue
+                result = response.results[0]
+                if not result.alternatives:
+                    continue
+                
+                transcript = result.alternatives[0].transcript
+                is_final = result.is_final
+                
+                logger.info(f"Google STT Raw: {transcript} (final={is_final})")
+                
+                words = transcript.strip().split()
+                if len(words) >= 2 or len(transcript) >= barge_in_threshold:
+                    yield BargeInEvent.create()
+                
+                if is_final:
+                    yield STTOutputEvent.create(transcript=transcript)
+                else:
+                    yield STTChunkEvent.create(transcript=transcript)
+
+        except Exception as e:
+            logger.error(f"Google STT Error: {e}", exc_info=True)
+
+    else:
+        logger.info("Using Sarvam STT")
+        stt = SarvamSTT(sample_rate=8000)
+        
+        async def send_audio_task():
+            try:
+                async for chunk in audio_stream:
+                    await stt.send_audio(chunk)
+            except Exception as e:
+                logger.error(f"Task Error: {e}", exc_info=True)
+            finally:
+                await stt.close()
+
+        sender = asyncio.create_task(send_audio_task())
+        
+        try:
+            async for event in stt.receive_events():
+                yield event
+        finally:
+            sender.cancel()
+            await stt.close()

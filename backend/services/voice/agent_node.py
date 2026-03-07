@@ -1,4 +1,5 @@
 import asyncio
+import re
 import time
 from typing import AsyncIterator
 from uuid import uuid4
@@ -12,7 +13,7 @@ from services.voice.session_context import get_current_organisation_id, get_curr
 logger = setup_logger("agent_node")
 
 # How many seconds to ignore barge-in after starting an AI response
-BARGE_IN_GRACE_PERIOD = 4.0
+BARGE_IN_GRACE_PERIOD = 1.0
 
 
 async def agent_stream(
@@ -38,6 +39,7 @@ async def agent_stream(
 
     async def generate_ai_response(text: str):
         """Stream LLM response into the shared output queue, chunked by sentence."""
+        nonlocal thread_id
         try:
             stream = session_agent_executor.astream(
                 {"messages": [HumanMessage(content=text)]},
@@ -45,9 +47,25 @@ async def agent_stream(
                 stream_mode="messages",
             )
             current_sentence = ""
-            async for message, metadata in stream:
+            async for chunk, metadata in stream:
+                # StateGraph can emit raw strings or dicts
+                if isinstance(chunk, str) or isinstance(chunk, dict):
+                    continue
+                    
+                message = chunk
+                
+                # Only listen to messages from our actual speech nodes
+                valid_nodes = ["greeting", "profiling", "diagnostic", "advisory"]
+                if not metadata or metadata.get("langgraph_node") not in valid_nodes:
+                    continue
+
                 # AIMessageChunk has .type == 'AIMessageChunk', not 'ai'
                 is_ai = hasattr(message, 'content') and 'ai' in message.type.lower()
+                
+                # Deduplicate final full message emissions
+                if getattr(message, "chunk", None) == False:
+                    continue
+
                 # Skip tool calls/responses
                 is_tool = getattr(message, 'tool_calls', None) or getattr(message, 'tool_call_chunks', None)
                 
@@ -58,6 +76,12 @@ async def agent_stream(
                             c.get("text", "") for c in chunk
                             if isinstance(c, dict) and "text" in c
                         ])
+
+                    # Safety: strip raw function call text that some models output as plain text
+                    chunk = re.sub(r'<function=\w+>.*?</function>', '', chunk, flags=re.DOTALL)
+                    chunk = re.sub(r'<function=\w+>.*', '', chunk, flags=re.DOTALL)
+                    if not chunk.strip():
+                        continue
 
                     for char in chunk:
                         current_sentence += char
@@ -76,6 +100,34 @@ async def agent_stream(
                 await output_queue.put(AgentChunkEvent.create(final))
         except asyncio.CancelledError:
             logger.info("AI response cancelled (barge-in)")
+        except ValueError as e:
+            if "ToolMessage" in str(e) and "tool_calls" in str(e):
+                logger.warning("Detected tool call state corruption. Attempting to inject missing ToolMessages to fix state.")
+                try:
+                    state = await session_agent_executor.aget_state({"configurable": {"thread_id": thread_id}})
+                    messages = state.values.get("messages", [])
+                    if messages and hasattr(messages[-1], "tool_calls") and messages[-1].tool_calls:
+                        from langchain_core.messages import ToolMessage
+                        # Create dummy ToolMessages
+                        tool_messages = [
+                            ToolMessage(content="Action interrupted by user.", tool_call_id=tc["id"], name=tc["name"])
+                            for tc in messages[-1].tool_calls
+                        ]
+                        await session_agent_executor.aupdate_state(
+                            {"configurable": {"thread_id": thread_id}},
+                            {"messages": tool_messages}
+                        )
+                        logger.info("Successfully patched state with dummy ToolMessages. Retrying...")
+                        await generate_ai_response(text)
+                        return
+                except Exception as patch_e:
+                    logger.error(f"Failed to patch state: {patch_e}", exc_info=True)
+
+                logger.warning("Falling back to rotating thread_id.")
+                thread_id = str(uuid4())
+                await generate_ai_response(text)
+            else:
+                logger.error(f"AI response value error: {e}", exc_info=True)
         except Exception as e:
             logger.error(f"AI response error: {e}", exc_info=True)
 
@@ -91,20 +143,55 @@ async def agent_stream(
         ai_response_start_time = time.monotonic()
         current_ai_task = asyncio.create_task(generate_ai_response(text))
 
+    last_stt_text: str = ""
+
     async def upstream_listener():
         """Consume STT events and drive the agent conversation."""
-        nonlocal current_ai_task
+        nonlocal current_ai_task, last_stt_text
+        consecutive_timeouts = 0
         try:
-            async for event in event_stream:
+            event_iter = event_stream.__aiter__()
+            while True:
+                # If AI is currently answering, we do NOT timeout
+                is_ai_speaking = current_ai_task and not current_ai_task.done()
+                timeout_duration = None if is_ai_speaking else 10.0
+
+                try:
+                    if timeout_duration:
+                        event = await asyncio.wait_for(anext(event_iter), timeout=timeout_duration)
+                    else:
+                        event = await anext(event_iter)
+                        
+                    # We received an event from STT (background noise, stt_chunk, etc)
+                    # We only reset the timeout if it's actual speech output or start
+                    if getattr(event, "type", "") in ["stt_output", "stt_chunk", "call_started"]:
+                        consecutive_timeouts = 0
+
+                except asyncio.TimeoutError:
+                    if is_ai_speaking:
+                        continue
+                        
+                    consecutive_timeouts += 1
+                    logger.info(f"User silence timeout #{consecutive_timeouts} detected.")
+                    
+                    if consecutive_timeouts == 1:
+                        _start_ai_task("__USER_SILENCE__")
+                    elif consecutive_timeouts >= 2:
+                        _start_ai_task("__USER_SILENCE_FINAL__")
+                    continue
+                except StopAsyncIteration:
+                    break
+
                 if event.type == "call_started":
                     # Trigger greeting immediately when pipeline starts
                     logger.info("Triggering initial greeting")
+                    last_stt_text = ""
                     _start_ai_task("__CALL_STARTED__")
                     continue
 
                 if event.type == "barge_in":
                     if _in_grace_period():
-                        logger.info("Barge-in ignored (grace period)")
+                        logger.info(f"Barge-in ignored (grace period: {time.monotonic() - ai_response_start_time:.2f}s)")
                         continue
                     if current_ai_task and not current_ai_task.done():
                         logger.info("Barge-in: cancelling AI task")
@@ -117,8 +204,16 @@ async def agent_stream(
                 await output_queue.put(event)
 
                 if event.type == "stt_output":
+                    text = event.transcript.strip()
+                    if not text:
+                        continue
+                    # Avoid processing the exact same text twice in rapid succession
+                    if text == last_stt_text:
+                        logger.info("Ignoring duplicate STT text: %s", text)
+                        continue
+                    last_stt_text = text
                     # New user utterance → start new AI response
-                    _start_ai_task(event.transcript)
+                    _start_ai_task(text)
         finally:
             await output_queue.put(None)
 

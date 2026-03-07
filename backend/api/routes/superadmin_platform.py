@@ -104,6 +104,7 @@ class PlatformConfigResponse(BaseModel):
     stt_provider: str
     tts_provider: str
     llm_model: str
+    embedding_model: Optional[str] = None
     rag_strictness_level: str
     rag_min_confidence: int
     force_kb_approval: bool
@@ -806,6 +807,7 @@ async def get_platform_config(
         stt_provider=config.stt_provider,
         tts_provider=config.tts_provider,
         llm_model=config.llm_model,
+        embedding_model="google" if config.llm_model == "gemini" else "openai",
         rag_strictness_level=config.rag_strictness_level,
         rag_min_confidence=config.rag_min_confidence,
         force_kb_approval=config.force_kb_approval,
@@ -840,9 +842,9 @@ async def update_platform_config(
     update_data = config_update.dict(exclude_unset=True)
     
     # Server-side Normalization: Force supported values only
-    SUPPORTED_STT = ["sarvam"]
-    SUPPORTED_TTS = ["sarvam"]
-    SUPPORTED_LLM = ["groq", "openai"]
+    SUPPORTED_STT = ["sarvam", "google"]
+    SUPPORTED_TTS = ["sarvam", "google"]
+    SUPPORTED_LLM = ["groq", "openai", "gemini"]
     
     if "stt_provider" in update_data and update_data["stt_provider"] not in SUPPORTED_STT:
         update_data["stt_provider"] = "sarvam"
@@ -1366,7 +1368,8 @@ async def get_platform_config(
             "default_language": "hi",
             "stt_provider": "google",
             "tts_provider": "google",
-            "llm_model": "gpt-4",
+            "llm_model": "gpt-4o",
+            "embedding_model": "openai",
             "rag_strictness_level": "medium",
             "rag_min_confidence": 60,
             "force_kb_approval": True,
@@ -1384,6 +1387,7 @@ async def get_platform_config(
         "stt_provider": config.stt_provider,
         "tts_provider": config.tts_provider,
         "llm_model": config.llm_model,
+        "embedding_model": "google" if config.llm_model == "gemini" else "openai",
         "rag_strictness_level": config.rag_strictness_level,
         "rag_min_confidence": config.rag_min_confidence,
         "force_kb_approval": config.force_kb_approval,

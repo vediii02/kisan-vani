@@ -57,9 +57,9 @@ export default function SuperAdminAIManagement() {
       // If DB has old values like 'bhashini' or 'google', map them to 'sarvam' or 'groq'
       const normalizedData = {
         ...data,
-        stt_provider: ['sarvam'].includes(data.stt_provider) ? data.stt_provider : 'sarvam',
-        tts_provider: ['sarvam'].includes(data.tts_provider) ? data.tts_provider : 'sarvam',
-        llm_model: ['groq', 'openai'].includes(data.llm_model) ? data.llm_model : 'groq',
+        stt_provider: ['sarvam', 'google'].includes(data.stt_provider) ? data.stt_provider : 'google',
+        tts_provider: ['sarvam', 'google'].includes(data.tts_provider) ? data.tts_provider : 'google',
+        llm_model: ['groq', 'openai', 'gemini'].includes(data.llm_model) ? data.llm_model : 'groq',
       };
 
       setConfig(normalizedData);
@@ -125,6 +125,7 @@ export default function SuperAdminAIManagement() {
               className="w-full px-3 py-2 border rounded-md"
             >
               <option value="sarvam">Sarvam AI</option>
+              <option value="google">Google</option>
             </select>
           </div>
 
@@ -136,6 +137,7 @@ export default function SuperAdminAIManagement() {
               className="w-full px-3 py-2 border rounded-md"
             >
               <option value="sarvam">Sarvam AI</option>
+              <option value="google">Google</option>
             </select>
           </div>
 
@@ -148,7 +150,20 @@ export default function SuperAdminAIManagement() {
             >
               <option value="groq">Groq (Llama 3.1)</option>
               <option value="openai">OpenAI (GPT-4o)</option>
+              <option value="gemini">Google (Gemini)</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Embedding Model (auto)</label>
+            <div className="w-full px-3 py-2 border rounded-md bg-gray-50 text-gray-700 text-sm">
+              {formData.llm_model === 'gemini'
+                ? '🟢 Google (gemini-embedding-001)'
+                : '🔵 OpenAI (text-embedding-3-small)'}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Auto-selected based on LLM model. Used for KB & product vectorization.
+            </p>
           </div>
 
           <div>

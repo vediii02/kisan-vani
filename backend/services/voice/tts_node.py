@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from sarvamai import AsyncSarvamAI, AudioOutput
 from services.voice.events import VoiceAgentEvent, TTSChunkEvent, BargeInEvent
 from services.voice.logger import setup_logger
+from services.config_service import get_platform_config
 
 logger = setup_logger("tts_node")
 
@@ -95,6 +96,46 @@ class SarvamTTS:
                 self._ws_context = None
                 logger.info("Connection closed.")
 
+class GoogleTTS:
+    def __init__(self):
+        from google.cloud import texttospeech
+        self._tts_module = texttospeech
+        self.client = texttospeech.TextToSpeechAsyncClient()
+        self.voice = texttospeech.VoiceSelectionParams(
+            language_code="hi-IN", name="hi-IN-Wavenet-A"
+        )
+        self.audio_config = texttospeech.AudioConfig(
+            audio_encoding=texttospeech.AudioEncoding.LINEAR16,
+            sample_rate_hertz=8000
+        )
+        self.output_queue = asyncio.Queue()
+
+    async def _receiver_loop(self):
+        pass # Google TTS is not streaming receive like Sarvam, we handle it in send_text
+
+    async def send_text(self, text: str) -> None:
+        """Send text to Google for synthesis."""
+        if not text or not text.strip():
+            return
+        try:
+            logger.info(f"Sending to Google TTS: {text}")
+            synthesis_input = self._tts_module.SynthesisInput(text=text)
+            response = await self.client.synthesize_speech(
+                input=synthesis_input, voice=self.voice, audio_config=self.audio_config
+            )
+            # The response.audio_content contains the WAV header as well if LINEAR16 is used,
+            # but for raw PCM we just need the raw audio bytes. LINEAR16 typically includes a 44-byte WAV header.
+            # We strip the first 44 bytes to get raw PCM data.
+            audio_chunk = response.audio_content[44:] if len(response.audio_content) > 44 else response.audio_content
+            if audio_chunk:
+                await self.output_queue.put(TTSChunkEvent.create(audio_chunk))
+        except Exception as e:
+            logger.error(f"Google TTS Send Error: {e}", exc_info=True)
+
+    async def close(self):
+        logger.info("Google TTS Connection closed.")
+
+
 async def tts_stream(
     event_stream: AsyncIterator[VoiceAgentEvent],
 ) -> AsyncIterator[VoiceAgentEvent]:
@@ -102,7 +143,15 @@ async def tts_stream(
     Transform stream: Voice Events → Voice Events (with Audio)
     Simplified logic to avoid event duplication and deadlocks.
     """
-    tts = SarvamTTS()
+    config = await get_platform_config()
+    tts_provider = config.get("tts_provider", "sarvam")
+    
+    if tts_provider == "google":
+        logger.info("Using Google TTS")
+        tts = GoogleTTS()
+    else:
+        logger.info("Using Sarvam TTS")
+        tts = SarvamTTS()
 
     async def upstream_listener():
         """Consumes events from Agent/Upstream and puts them in output queue."""

@@ -287,11 +287,19 @@ async def update_farmer_profile(
 
 
 # ==========================================
-# 4. System Prompt — Full FR Call Flow
+# 4. Agent State & Prompts
 # ==========================================
-system_prompt = """
-You are AI Krishi Sahayak, a friendly female agricultural helpline assistant on a live phone call with an Indian farmer.
+from typing import Annotated, Literal, Sequence, TypedDict
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.message import add_messages
+from langgraph.prebuilt import ToolNode
 
+class AgentState(TypedDict):
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+    stage: str # 'greeting', 'profiling', 'diagnostic', 'advisory'
+
+BASE_RULES = """You are AI Krishi Sahayak, a friendly female agricultural helpline assistant on a live phone call with an Indian farmer.
 LANGUAGE RULES:
 - Speak only in simple Hinglish (Hindi + simple English words).
 - Keep sentences short, natural, warm, and respectful.
@@ -299,78 +307,60 @@ LANGUAGE RULES:
 - No lists, numbers, bullet points, markdown, or formatting — this is a voice call.
 - Use feminine forms: "main bol rahi hoon", "main samajh gayi".
 - Never mention AI, system, database, tools, or technology.
+- Do NOT repeat instructions back or output your internal reasoning.
+- Keep responses SHORT — farmer is listening on phone, not reading.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CONVERSATION FLOW — Follow these steps IN ORDER:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SILENCE HANDLING:
+- If you receive "__USER_SILENCE__", say ONLY: "Hello, kya aap mujhe sun pa rahe hain? Aap wahan hain?"
+- If you receive "__USER_SILENCE_FINAL__", say ONLY: "Lagta hai aapki aawaz nahi aa rahi. Main call kaat rahi hoon. Phir se call kijiyega. Namaste!"
+"""
 
-STEP 1 — GREETING & CONSENT (Mandatory First):
+GREETING_PROMPT = BASE_RULES + """
+Current Stage: GREETING & CONSENT
 When you receive "__CALL_STARTED__", greet the farmer naturally:
 - Introduce yourself as AI Krishi Sahayak
 - Say the call may be recorded for quality
 - Ask if they want to continue
 - If they say no or stay silent after you ask twice, politely end: "Koi baat nahi, aap kabhi bhi call kar sakte hain. Dhanyavaad!"
-- Keep it natural, not robotic — vary your greeting slightly each time
-
-STEP 2 — FARMER PROFILING (One question at a time):
-After consent, collect:
-a) Name: "Aapka shubh naam kya hai?"
-b) Location: Village, Tehsil, District, State — ask naturally, one by one
-c) Confirm back critical info: "Aap [gaon] se hain, sahi samjhi main?"
-
-Use the `update_farmer_profile` tool immediately after receiving each piece of info (name, village, etc.) to save it.
-
-Do NOT stack questions. Ask one, wait for answer, then ask next.
-
-STEP 3 — CROP DETAILS (One question at a time):
-a) Crop name: "Aapne kaunsi fasal lagai hai?"
-b) Crop variety: only if farmer mentions or if relevant
-c) Crop stage: "Fasal abhi kis stage mein hai? Buwai ke kitne din ho gaye?"
-d) Irrigation: "Sinchai kaise karte hain? Borewell, nahar, ya baarish pe?"
-
-Use the `update_farmer_profile` tool to save crop information as you get it.
-
-STEP 4 — PROBLEM IDENTIFICATION:
-a) Problem category: "Kya dikkat aa rahi hai? Keede, bimari, kharpatwar, ya kuch aur?"
-b) Symptoms: "Zara batayiye exactly kya dikh raha hai paudhon mein?"
-c) Severity: "Kitni fasal mein yeh dikkat hai? Thodi ya zyada?"
-d) Products used: "Kya aapne koi dawai ya spray pehle se use ki hai?"
-
-Listen carefully. Let the farmer speak freely in their own words.
-
-STEP 5 — ADVISORY (Use retrieve_context tool):
-Once you understand the problem clearly:
-1. Use the retrieve_context tool with a search query combining: crop + symptoms + problem type
-2. Based on the retrieved information, give advice in THREE parts:
-   - "Abhi kya karein" — immediate steps the farmer should take
-   - "Agle 48 ghanton mein" — what to do in the next 2 days
-   - "Aage bachav ke liye" — preventive measures for the future
-3. Mention specific product names and dosage ONLY if they appear in retrieved context
-4. Never invent product names or dosages
-5. If retrieved info is not enough or you're unsure, ask up to 2 clarifying questions
-6. If still unsure, say you'll connect them to an expert
-
-STEP 6 — CLOSURE:
-After giving advice:
-- Ask "Aur koi dikkat hai fasal mein?"
-- If yes, go back to Step 4
-- If no, close warmly: "Bahut achha, aapki fasal achhi rahe! Koi bhi dikkat ho toh dubara call kar lena."
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STRICT RULES:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- You are on a LIVE PHONE CALL — be concise, natural, human
-- NEVER skip consent (Step 1)
-- Ask ONE question at a time, never batch
-- Do NOT give advice until you understand the problem (Steps 3-4 done)
-- Only recommend products from the knowledge base results
-- If problem seems serious or life-threatening to crop, say you'll connect to expert
-- Keep responses SHORT — farmer is listening on phone, not reading
+- Once they agree to continue, politely ask for their name to start profiling them.
 """
 
+PROFILING_PROMPT = BASE_RULES + """
+Current Stage: FARMER PROFILING
+Collect farmer profile info one question at a time: Name, Village, District, State.
+Use the `update_farmer_profile` tool immediately after receiving each piece of info.
+Do NOT stack questions.
+Once you have the basic location and name, move on by asking what crop they have planted.
+"""
+
+DIAGNOSTIC_PROMPT = BASE_RULES + """
+Current Stage: DIAGNOSTIC (CROP & PROBLEM IDENTIFICATION)
+Collect crop details and problem symptoms one question at a time:
+- Crop name & stage
+- Irrigation method
+- Exactly what symptoms are showing
+- How much area is affected
+- Previous products used
+Use the `update_farmer_profile` tool to save crop information as you get it.
+Once you clearly understand the crop and the exact symptoms, say "Main samajh gayi, ek minute aapki tasalli ke liye check karti hoon." Let the advisory expert handle the rest.
+"""
+
+ADVISORY_PROMPT = BASE_RULES + """
+Current Stage: ADVISORY
+You understand the farmer's problem. 
+1. Use the `retrieve_context` tool with a search query combining: crop + symptoms + problem type
+2. Based on the retrieved information, give advice:
+   - "Abhi kya karein" — immediate steps
+   - "Agle 48 ghanton mein" — next 2 days
+   - "Aage bachav ke liye" — future prevention
+3. Mention specific product names and dosage ONLY if they appear in retrieved context. Never invent products.
+4. If retrieved info is not enough, ask clarifying questions.
+5. If still unsure, say you'll connect them to an expert.
+After giving advice, ask if they have any other problems. If no, say goodbye politely.
+"""
 
 # ==========================================
-# 5. Agent Factory
+# 5. Agent Factory (LangGraph)
 # ==========================================
 async def get_agent_executor(organisation_id: int | None = None, company_id: int | None = None):
     # Get current LLM provider from config for cache key
@@ -388,10 +378,11 @@ async def get_agent_executor(organisation_id: int | None = None, company_id: int
         await init_checkpointer()
     current_llm = await get_llm()
 
+    # Define tools and wrappers
     if organisation_id is None:
-        tools = [retrieve_context, update_farmer_profile]
+        profiling_tools = [update_farmer_profile]
+        advisory_tools = [retrieve_context]
     else:
-        # Access the underlying coroutines of the @tool-decorated functions
         _retrieve_context_fn = retrieve_context.coroutine
         _update_farmer_profile_fn = update_farmer_profile.coroutine
 
@@ -419,14 +410,83 @@ async def get_agent_executor(organisation_id: int | None = None, company_id: int
                 problem_area=problem_area, crop_age_days=crop_age_days,
             )
 
-        tools = [retrieve_context_scoped, update_farmer_profile_scoped]
+        profiling_tools = [update_farmer_profile_scoped]
+        advisory_tools = [retrieve_context_scoped]
 
-    executor = create_react_agent(
-        model=current_llm,
-        tools=tools,
-        prompt=system_prompt,
-        checkpointer=checkpointer,
-    )
+    # Initialize node LLMs
+    greeting_llm = current_llm.bind_tools([])
+    profiling_llm = current_llm.bind_tools(profiling_tools)
+    diagnostic_llm = current_llm.bind_tools(profiling_tools) # Diagnostic also saves crop data
+    advisory_llm = current_llm.bind_tools(advisory_tools)
+
+    # Node Functions
+    async def greeting_node(state: AgentState):
+        messages = [SystemMessage(content=GREETING_PROMPT)] + list(state["messages"])
+        response = await greeting_llm.ainvoke(messages)
+        return {"messages": [response], "stage": "greeting"}
+
+    async def profiling_node(state: AgentState):
+        messages = [SystemMessage(content=PROFILING_PROMPT)] + list(state["messages"])
+        response = await profiling_llm.ainvoke(messages)
+        return {"messages": [response], "stage": "profiling"}
+
+    async def diagnostic_node(state: AgentState):
+        messages = [SystemMessage(content=DIAGNOSTIC_PROMPT)] + list(state["messages"])
+        response = await diagnostic_llm.ainvoke(messages)
+        return {"messages": [response], "stage": "diagnostic"}
+
+    async def advisory_node(state: AgentState):
+        messages = [SystemMessage(content=ADVISORY_PROMPT)] + list(state["messages"])
+        response = await advisory_llm.ainvoke(messages)
+        return {"messages": [response], "stage": "advisory"}
+
+    # Intelligent Router (LLM decides when to switch stages)
+    # This prevents edge case routing bugs
+    async def stage_router(state: AgentState) -> str:
+        messages = state["messages"]
+        last_msg = messages[-1] if messages else None
+        
+        # Always handle tool calls natively
+        if hasattr(last_msg, "tool_calls") and last_msg.tool_calls:
+            return "tools"
+        if getattr(last_msg, "type", "") == "tool":
+            return state.get("stage", "greeting")
+
+        # Routing decision based on conversation analysis
+        router_prompt = "You are a conversation router. Analyze the conversation. Return ONLY one of the following words based on what the assistant should do next: 'greeting', 'profiling', 'diagnostic', 'advisory'."
+        router_sys = SystemMessage(content=router_prompt)
+        
+        try:
+            route_decision = await current_llm.ainvoke([router_sys] + list(messages[-5:])) # Look at recent context
+            choice = route_decision.content.strip().lower()
+            if "advisory" in choice: return "advisory"
+            if "diagnostic" in choice: return "diagnostic"
+            if "profiling" in choice: return "profiling"
+            return "greeting"
+        except Exception as e:
+            logger.error(f"Routing error: {e}")
+            return state.get("stage", "greeting") # Fallback to current stage
+
+    # Build Graph
+    workflow = StateGraph(AgentState)
+    
+    workflow.add_node("greeting", greeting_node)
+    workflow.add_node("profiling", profiling_node)
+    workflow.add_node("diagnostic", diagnostic_node)
+    workflow.add_node("advisory", advisory_node)
+    workflow.add_node("tools", ToolNode(profiling_tools + advisory_tools))
+
+    # All nodes route back to the intelligent router after responding to user
+    workflow.add_conditional_edges(START, stage_router)
+    workflow.add_edge("greeting", END)
+    workflow.add_edge("profiling", END)
+    workflow.add_edge("diagnostic", END)
+    workflow.add_edge("advisory", END)
+    
+    # Tool edge
+    workflow.add_conditional_edges("tools", lambda state: state.get("stage", "greeting"))
+
+    executor = workflow.compile(checkpointer=checkpointer)
     _agent_cache[cache_key] = executor
     return executor
 
