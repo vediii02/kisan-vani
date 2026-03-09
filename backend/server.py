@@ -29,6 +29,8 @@ from services.voice.stt_node import stt_stream
 from services.voice.agent_node import agent_stream
 from services.voice.tts_node import tts_stream
 from services.voice.exotel_adapter import ExotelAdapter
+from services.voice.call_manager import call_manager
+from services.config_service import get_platform_config
 from services.voice.session_context import (
     set_current_organisation_id,
     reset_current_organisation_id,
@@ -158,7 +160,25 @@ async def conversation_endpoint(websocket: WebSocket):
     session_id = f"web_{uuid.uuid4().hex[:8]}"
     session_id_token = set_current_session_id(session_id)
     
+    if not await call_manager.can_start_call():
+        await websocket.close(code=1008, reason="Max concurrent calls reached")
+        return
+
     logger.info(f"Client connected to /ws/conversation - org: {organisation_id}, company: {company_id}, phone: {from_number}")
+    await call_manager.register_call(session_id)
+    
+    config = await get_platform_config()
+    max_duration = config.get("max_call_duration_minutes", 15) * 60 # Convert to seconds
+
+    async def _duration_enforcer():
+        await asyncio.sleep(max_duration)
+        logger.warning(f"Session {session_id} exceeded max duration ({max_duration}s). Closing.")
+        try:
+            await websocket.close(code=1001, reason="Max call duration reached")
+        except Exception:
+            pass
+
+    duration_task = asyncio.create_task(_duration_enforcer())
     
     async def websocket_audio_stream():
         try:
@@ -188,6 +208,10 @@ async def conversation_endpoint(websocket: WebSocket):
                     await websocket.send_json({"type": "agent_chunk", "text": event.text})
                 elif event.type == "tts_chunk":
                     await websocket.send_bytes(event.audio)
+                elif event.type == "hangup":
+                    logger.info(f"Hangup detected: {event.reason}. Closing connection.")
+                    await websocket.send_json({"type": "hangup", "reason": event.reason})
+                    break
             except WebSocketDisconnect:
                 logger.info("Client disconnected during processing.")
                 break
@@ -203,6 +227,8 @@ async def conversation_endpoint(websocket: WebSocket):
          reset_current_phone_number(phone_ctx_token)
          reset_current_session_id(session_id_token)
          reset_current_farmer_row_id(farmer_row_ctx_token)
+         duration_task.cancel()
+         await call_manager.unregister_call(session_id)
          try:
              await websocket.close()
          except RuntimeError:
@@ -227,7 +253,27 @@ async def exotel_ws_endpoint(websocket: WebSocket):
     session_id = f"exotel_{datetime.now().timestamp()}_{uuid.uuid4().hex[:8]}"
     session_id_token = set_current_session_id(session_id)
     
+    if not await call_manager.can_start_call():
+        # Exotel expects 200 OK or 101 Switching Protocols. 
+        # If we just close, it might retry.
+        await websocket.close(code=1008, reason="Max concurrent calls reached")
+        return
+
     logger.info(f"Exotel connected to /ws/exotel - org: {organisation_id}, company: {company_id}, phone: {from_number}")
+    await call_manager.register_call(session_id)
+
+    config = await get_platform_config()
+    max_duration = config.get("max_call_duration_minutes", 15) * 60 # Convert to seconds
+
+    async def _duration_enforcer():
+        await asyncio.sleep(max_duration)
+        logger.warning(f"Exotel Session {session_id} exceeded max duration ({max_duration}s). Closing.")
+        try:
+            await websocket.close(code=1001, reason="Max call duration reached")
+        except Exception:
+            pass
+
+    duration_task = asyncio.create_task(_duration_enforcer())
     
     adapter = ExotelAdapter()
     call_active = True
@@ -347,7 +393,7 @@ async def exotel_ws_endpoint(websocket: WebSocket):
                     else:
                         new_farmer = Farmer(
                             phone_number=adapter.from_number,
-                            name="Unknown Caller",
+                            name="User",
                             language="hi"
                         )
                         db.add(new_farmer)
@@ -409,10 +455,15 @@ async def exotel_ws_endpoint(websocket: WebSocket):
                     call_active = False
                     break
                 except Exception as e:
-                    logger.error(f"Exotel reader error: {e}", exc_info=True)
+                    logger.error(f"Exotel reader error: {e}")
+                    # If the websocket is in a bad state, stop the loop to prevent spam
+                    if "not connected" in str(e) or "accept" in str(e).lower():
+                        call_active = False
+                        break
                     await asyncio.sleep(0.1)
         finally:
             call_active = False
+            logger.info("Exotel reader task finishing")
             try:
                 audio_queue.put_nowait(None)
             except asyncio.QueueFull:
@@ -456,6 +507,10 @@ async def exotel_ws_endpoint(websocket: WebSocket):
                     exotel_msg = adapter.format_audio_message(event.audio)
                     if exotel_msg:
                         await websocket.send_text(exotel_msg)
+                elif event.type == "hangup":
+                    logger.info(f"Hangup detected for Exotel {session_id}: {event.reason}. Closing connection.")
+                    # No specific Exotel hangup text; closing socket terminates the call.
+                    break
             except WebSocketDisconnect:
                 break
             except Exception as e:
@@ -468,6 +523,8 @@ async def exotel_ws_endpoint(websocket: WebSocket):
          reset_current_phone_number(phone_ctx_token)
          reset_current_session_id(session_id_token)
          reset_current_farmer_row_id(farmer_row_ctx_token)
+         duration_task.cancel()
+         await call_manager.unregister_call(session_id)
          
          # Update CallSession to COMPLETED
          try:

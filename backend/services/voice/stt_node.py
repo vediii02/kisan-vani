@@ -8,9 +8,10 @@ from dotenv import load_dotenv
 
 from sarvamai import AsyncSarvamAI
 import websockets
+import webrtcvad
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from services.voice.events import VoiceAgentEvent, STTChunkEvent, STTOutputEvent, BargeInEvent, CallStartedEvent
+from services.voice.events import VoiceAgentEvent, STTChunkEvent, STTOutputEvent, STTInterimEvent, BargeInEvent, CallStartedEvent
 from services.voice.logger import setup_logger
 from services.config_service import get_platform_config
 
@@ -19,10 +20,10 @@ logger = setup_logger("stt_node")
 load_dotenv()
 
 class SarvamSTT:
-    def __init__(self, sample_rate: int = 8000):
+    def __init__(self, sample_rate: int = 8000, language_code: str = "hi-IN"):
         self.api_key = os.getenv("SARVAM_API_KEY")
         self.sample_rate = sample_rate
-        self.language_code = "hi-IN"
+        self.language_code = language_code
         self.client = AsyncSarvamAI(api_subscription_key=self.api_key)
         self._ws_context = None
         self._ws = None
@@ -33,6 +34,14 @@ class SarvamSTT:
             self.barge_in_threshold = int(os.getenv("BARGE_IN_THRESHOLD", "10"))
         except ValueError:
             self.barge_in_threshold = 10
+            
+        # VAD Initialize (Mode 1: light, 2: moderate, 3: aggressive)
+        self.vad = webrtcvad.Vad(2)
+        self._audio_buffer = bytearray()
+        # VAD requires frames of 10, 20, or 30ms.
+        # At 8000Hz, 30ms = 240 samples = 480 bytes (16-bit PCM)
+        self._vad_frame_size = 480 
+        
         self._closed = False
 
     async def _mark_disconnected(self):
@@ -84,16 +93,40 @@ class SarvamSTT:
             if not ws:
                 return
             
-            b64_audio = base64.b64encode(audio_chunk).decode("utf-8")
-            payload = {
-                "audio": {
-                    "data": b64_audio,
-                    "encoding": "audio/wav", # Mandated by Sarvam server
-                    "sample_rate": self.sample_rate
-                }
-            }
-            # Send raw JSON to bypass Pydantic validation
-            await self._ws._websocket.send(json.dumps(payload))
+            # append to buffer
+            if not hasattr(self, "_chunk_log_counter"): self._chunk_log_counter = 0
+            self._chunk_log_counter += 1
+            if self._chunk_log_counter % 50 == 0:
+                logger.debug(f"Received audio chunk: len={len(audio_chunk)}")
+                
+            self._audio_buffer.extend(audio_chunk)
+            
+            # Process buffer in 30ms frames
+            while len(self._audio_buffer) >= self._vad_frame_size:
+                frame = bytes(self._audio_buffer[:self._vad_frame_size])
+                self._audio_buffer = self._audio_buffer[self._vad_frame_size:]
+                
+                # Check VAD
+                is_speech = self.vad.is_speech(frame, self.sample_rate)
+                
+                # Debug logging - only log every 10 frames to avoid flooding
+                if not hasattr(self, "_vad_log_counter"): self._vad_log_counter = 0
+                self._vad_log_counter += 1
+                if self._vad_log_counter % 20 == 0:
+                    logger.debug(f"VAD check: is_speech={is_speech}, buffer_len={len(self._audio_buffer)}")
+
+                if is_speech:
+                    b64_audio = base64.b64encode(frame).decode("utf-8")
+                    payload = {
+                        "audio": {
+                            "data": b64_audio,
+                            "encoding": "audio/wav", # Mandated by Sarvam server
+                            "sample_rate": self.sample_rate
+                        }
+                    }
+                    await self._ws._websocket.send(json.dumps(payload))
+                # else: ignore noise frames locally
+                
         except websockets.exceptions.ConnectionClosed as e:
             logger.warning(f"Sarvam send socket closed ({e.code}); will reconnect.")
             await self._mark_disconnected()
@@ -114,7 +147,9 @@ class SarvamSTT:
 
                 while not self._closed:
                     try:
-                        message = await asyncio.wait_for(ws.recv(), timeout=1.5)
+                        # Sarvam STT receiver loop
+                        # Increased timeout to 1.1s to allow natural farmer pauses as per the optimized plan
+                        message = await asyncio.wait_for(ws.recv(), timeout=1.1)
 
                         data = getattr(message, "data", None)
                         if data and hasattr(data, "transcript"):
@@ -124,7 +159,12 @@ class SarvamSTT:
 
                             last_yielded_transcript = transcript
                             pending_transcript = transcript
-                            is_final = any(p in transcript for p in ["।", ".", "?", "!"])
+                            is_final_msg = getattr(data, "is_final", None)
+                            if is_final_msg is not None:
+                                is_final = bool(is_final_msg)
+                            else:
+                                # Fallback to punctuation detection
+                                is_final = any(p in transcript for p in ["।", ".", "?", "!"])
 
                             logger.info(f"Raw: {transcript} (final={is_final})")
 
@@ -137,14 +177,20 @@ class SarvamSTT:
                                 yield STTOutputEvent.create(transcript=transcript)
                                 pending_transcript = ""  # Cleared because it was final
                             else:
+                                # STTChunkEvent: always yield for UI/Exotel feedback
                                 yield STTChunkEvent.create(transcript=transcript)
+                                
+                                # STTInterimEvent: yield only for speculative LLM triggering
+                                # We want to give the LLM a head start once the user has said a meaningful amount
+                                if len(words) >= 3:
+                                    yield STTInterimEvent.create(transcript=transcript)
                         else:
                             logger.info(f"Unknown Msg: {message}")
 
                     except asyncio.TimeoutError:
-                        # User stopped speaking for 1.5s. If we have pending text, make it final
+                        # User stopped speaking for 1.1s. If we have pending text, make it final
                         if pending_transcript:
-                            logger.info(f"Silence timeout. Flushing as final: {pending_transcript}")
+                            logger.info(f"Silence timeout (1.1s). Flushing as final: {pending_transcript}")
                             yield STTOutputEvent.create(transcript=pending_transcript)
                             pending_transcript = ""
                             last_yielded_transcript = ""  # Reset so next utterance isn't skipped if identical
@@ -183,16 +229,26 @@ async def stt_stream(
 
     config = await get_platform_config()
     stt_provider = config.get("stt_provider", "sarvam")
+    lang_code = config.get("default_language", "hi")
+    
+    # Map short codes to full BCP-47 tags
+    lang_map = {
+        "hi": "hi-IN",
+        "en": "en-IN",
+        "pa": "pa-IN",
+        "mr": "mr-IN"
+    }
+    full_lang_code = lang_map.get(lang_code, "hi-IN")
 
     if stt_provider == "google":
-        logger.info("Using Google STT")
+        logger.info(f"Using Google STT with language: {full_lang_code}")
         from google.cloud import speech
 
         client = speech.SpeechAsyncClient()
         config_req = speech.RecognitionConfig(
             encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
             sample_rate_hertz=8000,
-            language_code="hi-IN",
+            language_code=full_lang_code,
             enable_automatic_punctuation=True,
         )
         streaming_config = speech.StreamingRecognitionConfig(
@@ -238,8 +294,8 @@ async def stt_stream(
             logger.error(f"Google STT Error: {e}", exc_info=True)
 
     else:
-        logger.info("Using Sarvam STT")
-        stt = SarvamSTT(sample_rate=8000)
+        logger.info(f"Using Sarvam STT with language: {full_lang_code}")
+        stt = SarvamSTT(sample_rate=8000, language_code=full_lang_code)
         
         async def send_audio_task():
             try:

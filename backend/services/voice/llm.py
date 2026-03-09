@@ -38,7 +38,7 @@ def _create_openai_llm():
     from langchain_openai import ChatOpenAI
     return ChatOpenAI(
         model="gpt-4o-mini",
-        temperature=0.3,
+        temperature=0.1,
         api_key=openai_api_key,
     )
 
@@ -136,6 +136,7 @@ async def _pgvector_search(
     query: str,
     *,
     limit: int = 5,
+    threshold: float = 0.4, # Default: 1 - 0.6 (60% confidence)
     organisation_id: int,
     company_id: int | None = None,
 ) -> list[KnowledgeEntry]:
@@ -145,6 +146,7 @@ async def _pgvector_search(
         filters = [
             KnowledgeEntry.embedding.is_not(None),
             KnowledgeEntry.organisation_id == organisation_id,
+            KnowledgeEntry.embedding.cosine_distance(query_vector) <= threshold
         ]
         if company_id is not None:
             filters.append(KnowledgeEntry.company_id == company_id)
@@ -190,8 +192,13 @@ async def retrieve_context(query: str, organisation_id: int | None = None, compa
     if resolved_org_id is None:
         return "Warning: Organisation context required for knowledge retrieval."
 
+    config = await get_platform_config()
+    rag_limit = config.get("rag_max_results", 5)
+    rag_min_conf = config.get("rag_min_confidence", 60)
+    threshold = (100 - rag_min_conf) / 100.0
+
     try:
-        docs = await _pgvector_search(query, limit=5, organisation_id=resolved_org_id, company_id=resolved_comp_id)
+        docs = await _pgvector_search(query, limit=rag_limit, threshold=threshold, organisation_id=resolved_org_id, company_id=resolved_comp_id)
         if not docs:
             return "No relevant information found in the knowledge base."
 
@@ -338,28 +345,81 @@ class AgentState(TypedDict):
     stage: str # 'greeting', 'profiling', 'diagnostic', 'advisory'
 
 BASE_RULES = """You are AI Krishi Sahayak (KisanVani), a friendly, highly empathetic female agricultural expert on a live phone call with an Indian farmer.
-LANGUAGE & TONE RULES (STRICTLY ENFORCED):
-- Speak ONLY in natural, conversational Hinglish (Hindi + simple English words like 'spray', 'dawai', 'acre').
-- Use feminine forms always: "main samajh sakti hoon", "main batati hoon".
+GENERAL RULES:
 - Be deeply empathetic. If a farmer mentions crop damage or disease, express genuine concern first ("Arre, yeh toh badi pareshani ki baat hai", "Chinta mat kijiye, hum iska ilaj nikalenge").
 - Keep sentences VERY SHORT and natural. The farmer is listening on a phone, not reading a text message.
-- NEVER use formal Hindi (e.g. prashn, sujhav, kripya). Use colloquial terms (sawaal, salah, please).
+- NEVER use formal terms. Use colloquial, empathetic language.
 - NEVER use lists, bullet points, asterisks, or markdown. Output plain spoken text only.
-- NEVER sound robotic. Use conversational fillers naturally ("Ji bilkul", "Achha", "Samajh gayi").
+- NEVER sound robotic. Use conversational fillers naturally.
 - NEVER mention AI, database, tools, or technology. Act like a real human expert sitting in an advisory center.
 - Ask ONLY ONE question at a time. Never interrogate the farmer.
+"""
+
+DEFAULT_RULES = """
+LANGUAGE & TONE RULES:
+- Speak ONLY in natural, conversational Hinglish (Hindi + simple English words like 'spray', 'dawai', 'acre').
+- Use feminine forms always: "main samajh sakti hoon", "main batati hoon".
+- NEVER use formal Hindi (e.g. prashn, sujhav). Use colloquial terms (sawaal, salah).
+"""
+
+def _get_lang_rules(lang: str) -> str:
+    if lang == "en":
+        return """
+LANGUAGE & TONE RULES:
+- Speak ONLY in natural, conversational Indian English.
+- Be deeply empathetic and polite.
+- Keep sentences VERY SHORT for phone audio.
+"""
+    elif lang == "pa":
+        return """
+LANGUAGE & TONE RULES:
+- Speak ONLY in natural, conversational Punjabi.
+- Use feminine forms always.
+- Be deeply empathetic and polite.
+"""
+    elif lang == "mr":
+        return """
+LANGUAGE & TONE RULES:
+- Speak ONLY in natural, conversational Marathi.
+- Use feminine forms always.
+- Be deeply empathetic and polite.
+"""
+    return DEFAULT_RULES
+
+def _get_greeting(lang: str) -> str:
+    greetings = {
+        "hi": '- "Namaste! Main KisanVani se, aapki Krishi Sahayak bol rahi hoon. Asha karti hoon aap theek honge. (Yeh call quality ke liye record ho rahi hai). Boliye, aaj main aapki kya madad kar sakti hoon?"',
+        "en": '- "Hello! I am your Krishi Sahayak from KisanVani. I hope you are doing well. (This call is being recorded for quality purposes). How can I help you today?"',
+        "pa": '- "ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ ਕਿਸਾਨਵਾਣੀ ਤੋਂ ਤੁਹਾਡੀ ਕ੍ਰਿਸ਼ੀ ਸਹਾਇਕ ਬੋਲ ਰਹੀ ਹਾਂ। ਉਮੀਦ ਹੈ ਕਿ ਤੁਸੀਂ ਠੀਕ ਹੋਵੋਗੇ। (ਇਹ ਕਾਲ ਕੁਆਲਿਟੀ ਲਈ ਰਿਕਾਰਡ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ)। ਦੱਸੋ, ਅੱਜ ਮੈਂ ਤੁਹਾਡੀ ਕੀ ਮਦਦ ਕਰ ਸਕਦੀ ਹਾਂ?"',
+        "mr": '- "नमस्कार! मी किसानवाणीकडून आपली कृषी सहाय्यक बोलत आहे. आशा आहे की आपण ठीक असाल. (हा कॉल गुणवत्तेसाठी रेकॉर्ड केला जात आहे). सांगा, आज मी आपली काय मदत करू शकते?"'
+    }
+    return greetings.get(lang, greetings["hi"])
+
+def _get_name_ask(lang: str) -> str:
+    prompts = {
+        "hi": '"Jab tak aap batate hain, kya main aapka shubh naam jaan sakti hoon?"',
+        "en": '"While you tell me that, may I know your name please?"',
+        "pa": '"ਜਦੋਂ ਤੱਕ ਤੁਸੀਂ ਦੱਸਦੇ ਹੋ, ਕੀ ਮੈਂ ਤੁਹਾਡਾ ਸ਼ੁਭ ਨਾਮ ਜਾਣ ਸਕਦੀ ਹਾਂ?"',
+        "mr": '"तुम्ही सांगेपर्यंत, मी तुमचे नाव जाणून घेऊ शकते का?"'
+    }
+    return prompts.get(lang, prompts["hi"])
+
+HANGUP_RULES = """
+CALL TERMINATION RULE:
+- If the conversation has reached a natural end (e.g., the farmer says "Thank you", or "Theek hai, dhanyawad"), greet them one last time and append the marker "[END_CALL]" at the VERY END of your response.
+- Example: "Theek hai, apna khayal rakhiyega. Namaste! [END_CALL]"
 
 SILENCE HANDLING:
 - If you receive "__USER_SILENCE__", say ONLY: "Hello, kya aap mujhe sun pa rahe hain? Aap wahan hain?"
-- If you receive "__USER_SILENCE_FINAL__", say ONLY: "Lagta hai aapki aawaz nahi aa rahi hai. Main call kaat rahi hoon. Aap fursat mein phir se call kar lijiyega. Namaste!"
+- If you receive "__USER_SILENCE_FINAL__", say ONLY: "Lagta hai aapki aawaz nahi aa rahi hai. Main call kaat rahi hoon. Aap fursat mein phir se call kar lijiyega. Namaste! [END_CALL]"
 """
 
-GREETING_PROMPT = BASE_RULES + """
+GREETING_PROMPT = """
 Current Stage: GREETING & CONSENT
 When you receive "__CALL_STARTED__", greet the farmer warmly:
-- "Namaste! Main KisanVani se, aapki Krishi Sahayak bol rahi hoon. Asha karti hoon aap theek honge. (Yeh call quality ke liye record ho rahi hai). Boliye, aaj main aapki kya madad kar sakti hoon?"
+{greeting_text}
 - Do NOT force them to explicitly say "yes" to recording unless they object.
-- If they ask a question immediately, answer it. Otherwise, politely ask for their name: "Jab tak aap batate hain, kya main aapka shubh naam jaan sakti hoon?"
+- If they ask a question immediately, answer it. Otherwise, politely ask for their name: {name_ask_text}
 """
 
 PROFILING_PROMPT = BASE_RULES + """
@@ -504,22 +564,45 @@ async def get_agent_executor(organisation_id: int | None = None, company_id: int
 
     # Node Functions
     async def greeting_node(state: AgentState):
-        messages = [SystemMessage(content=GREETING_PROMPT)] + list(state["messages"])
+        config = await get_platform_config()
+        lang = config.get("default_language", "hi")
+        
+        lang_rules = _get_lang_rules(lang)
+        prompt = BASE_RULES + lang_rules + GREETING_PROMPT.format(
+            greeting_text=_get_greeting(lang),
+            name_ask_text=_get_name_ask(lang)
+        ) + HANGUP_RULES
+        
+        messages = [SystemMessage(content=prompt)] + list(state["messages"])
         response = await greeting_llm.ainvoke(messages)
         return {"messages": [response], "stage": "greeting"}
 
     async def profiling_node(state: AgentState):
-        messages = [SystemMessage(content=PROFILING_PROMPT)] + list(state["messages"])
+        config = await get_platform_config()
+        lang = config.get("default_language", "hi")
+        prompt = BASE_RULES + _get_lang_rules(lang) + PROFILING_PROMPT + HANGUP_RULES
+        
+        messages = [SystemMessage(content=prompt)] + list(state["messages"])
         response = await profiling_llm.ainvoke(messages)
         return {"messages": [response], "stage": "profiling"}
 
     async def diagnostic_node(state: AgentState):
-        messages = [SystemMessage(content=DIAGNOSTIC_PROMPT)] + list(state["messages"])
+        config = await get_platform_config()
+        lang = config.get("default_language", "hi")
+        prompt = BASE_RULES + _get_lang_rules(lang) + DIAGNOSTIC_PROMPT + HANGUP_RULES
+        
+        messages = [SystemMessage(content=prompt)] + list(state["messages"])
         response = await diagnostic_llm.ainvoke(messages)
         return {"messages": [response], "stage": "diagnostic"}
 
     async def advisory_node(state: AgentState):
         raw_messages = list(state["messages"])
+
+        config = await get_platform_config()
+        lang = config.get("default_language", "hi")
+        force_kb = config.get("force_kb_approval", True)
+        strictness = config.get("rag_strictness_level", "medium")
+        lang_rules = _get_lang_rules(lang)
 
         # Hard guard: do not allow advisory to proceed without KB retrieval.
         if not _recent_has_retrieval(raw_messages):
@@ -532,18 +615,26 @@ async def get_agent_executor(organisation_id: int | None = None, company_id: int
                 or kb_context.startswith("Retrieval error:")
                 or kb_context.startswith("Warning: Organisation context required")
             ):
-                return {
-                    "messages": [
-                        AIMessage(
-                            content="Maaf kijiyega, mere paas iski satik dawai abhi nahi hai, main aapko ek krishi expert se baat karwa sakti hoon"
-                        )
-                    ],
-                    "stage": "advisory",
-                }
+                if force_kb:
+                    content = "Maaf kijiyega, mere paas iski satik dawai abhi nahi hai, main aapko ek krishi expert se baat karwa sakti hoon"
+                    if lang == "en": content = "I'm sorry, I don't have the exact medicine for this right now, I can connect you with an agricultural expert."
+                    elif lang == "pa": content = "ਮਾਫ ਕਰਨਾ, ਮੇਰੇ ਕੋਲ ਇਸ ਲਈ ਸਹੀ ਦਵਾਈ ਨਹੀਂ ਹੈ, ਮੈਂ ਤੁਹਾਨੂੰ ਇੱਕ ਖੇਤੀਬਾੜੀ ਮਾਹਿਰ ਨਾਲ ਜੋੜ ਸਕਦਾ ਹਾਂ।"
+                    
+                    return {
+                        "messages": [AIMessage(content=content)],
+                        "stage": "advisory",
+                    }
+                else:
+                    logger.info("KB match empty but force_kb_approval is False. Allowing general response.")
+                    # Allow LLM to proceed without KB grounding
+                    prompt = BASE_RULES + lang_rules + ADVISORY_PROMPT + HANGUP_RULES
+                    messages = [SystemMessage(content=prompt)] + raw_messages
+                    response = await advisory_llm.ainvoke(messages)
+                    return {"messages": [response], "stage": "advisory"}
 
             grounding_prompt = (
-                ADVISORY_PROMPT
-                + "\n\nSTRICT GROUNDING RULE:\nUse ONLY this retrieved context. If details are missing, do not guess medicines.\n\n"
+                BASE_RULES + lang_rules + ADVISORY_PROMPT + HANGUP_RULES
+                + f"\n\nSTRICT GROUNDING RULE (Strictness: {strictness}):\nUse ONLY this retrieved context. If details are missing, do not guess medicines.\n\n"
                 + kb_context
             )
             response = await advisory_llm.ainvoke([SystemMessage(content=grounding_prompt)] + raw_messages)

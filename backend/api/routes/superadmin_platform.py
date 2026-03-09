@@ -1379,28 +1379,14 @@ async def get_call_analytics(
             if summary.target_crop:
                 crop_counts[summary.target_crop] = crop_counts.get(summary.target_crop, 0) + 1
             
-            # Problems can be inferred from summary or recommendations (placeholders for now if not explicit)
-            # Future: Extract from summary.summary_text_english via LLM if not already structured
+            if hasattr(summary, 'target_problem') and summary.target_problem:
+                problem_counts[summary.target_problem] = problem_counts.get(summary.target_problem, 0) + 1
             
     # Format Top Crops
-    if not crop_counts:
-        top_crops = [
-            {"crop": "Wheat", "count": int(total_calls * 0.4)},
-            {"crop": "Rice", "count": int(total_calls * 0.3)},
-            {"crop": "Cotton", "count": int(total_calls * 0.2)},
-            {"crop": "Sugarcane", "count": int(total_calls * 0.1)}
-        ]
-    else:
-        top_crops = [{"crop": crop, "count": count} for crop, count in sorted(crop_counts.items(), key=lambda x: x[1], reverse=True)]
+    top_crops = [{"crop": crop, "count": count} for crop, count in sorted(crop_counts.items(), key=lambda x: x[1], reverse=True)]
     
-    # Format Top Problems (still using placeholders but ready for extraction)
-    top_problems = [
-        {"problem": "Yellowing leaves", "count": int(total_calls * 0.3)},
-        {"problem": "Pest attack", "count": int(total_calls * 0.25)},
-        {"problem": "Wilting", "count": int(total_calls * 0.2)},
-        {"problem": "Disease", "count": int(total_calls * 0.15)},
-        {"problem": "Other", "count": int(total_calls * 0.1)}
-    ]
+    # Format Top Problems
+    top_problems = [{"problem": problem, "count": count} for problem, count in sorted(problem_counts.items(), key=lambda x: x[1], reverse=True)]
     
     # Calls by hour
     hour_counts = {}

@@ -15,12 +15,21 @@ class CallStartedEvent(VoiceAgentEvent):
 
 
 class STTChunkEvent(VoiceAgentEvent):
-    """Interim STT result."""
+    """Real-time STT snippets—high frequency, used for UI."""
     transcript: str
 
     @classmethod
     def create(cls, transcript: str):
         return cls(type="stt_chunk", transcript=transcript)
+
+
+class STTInterimEvent(VoiceAgentEvent):
+    """High-confidence interim STT result — used for speculative LLM triggering."""
+    transcript: str
+
+    @classmethod
+    def create(cls, transcript: str):
+        return cls(type="stt_interim", transcript=transcript)
 
 
 class STTOutputEvent(VoiceAgentEvent):
@@ -56,3 +65,12 @@ class TTSChunkEvent(VoiceAgentEvent):
     @classmethod
     def create(cls, audio: bytes):
         return cls(type="tts_chunk", audio=audio)
+
+
+class HangupEvent(VoiceAgentEvent):
+    """Signal to close the connection."""
+    reason: str | None = None
+
+    @classmethod
+    def create(cls, reason: str | None = None):
+        return cls(type="hangup", reason=reason)

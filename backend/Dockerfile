@@ -4,7 +4,7 @@ WORKDIR /app
 
 # System dependencies
 RUN apt-get update && apt-get install -y \
-    gcc g++ curl ffmpeg netcat-openbsd \
+    gcc g++ curl ffmpeg netcat-openbsd python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements

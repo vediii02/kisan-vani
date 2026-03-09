@@ -160,3 +160,4 @@ numpy<2
 pypdf
 google-cloud-speech
 google-cloud-texttospeech
+webrtcvad

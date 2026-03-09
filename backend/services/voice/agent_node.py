@@ -5,7 +5,7 @@ from typing import AsyncIterator
 from uuid import uuid4
 
 from langchain_core.messages import HumanMessage
-from services.voice.events import VoiceAgentEvent, AgentChunkEvent, BargeInEvent
+from services.voice.events import VoiceAgentEvent, AgentChunkEvent, BargeInEvent, HangupEvent, STTInterimEvent
 from services.voice.llm import get_agent_executor
 from services.voice.logger import setup_logger
 from services.voice.session_context import get_current_organisation_id, get_current_company_id, get_current_session_id
@@ -13,7 +13,7 @@ from services.voice.session_context import get_current_organisation_id, get_curr
 logger = setup_logger("agent_node")
 
 # How many seconds to ignore barge-in after starting an AI response
-BARGE_IN_GRACE_PERIOD = 1.0
+BARGE_IN_GRACE_PERIOD = 0.4
 
 
 async def agent_stream(
@@ -30,16 +30,26 @@ async def agent_stream(
     """
     thread_id = get_current_session_id() or str(uuid4())
     output_queue: asyncio.Queue = asyncio.Queue()
+    
+    # Active response management
     current_ai_task: asyncio.Task | None = None
-    ai_response_start_time: float = 0.0  # When the current AI response started
+    ai_response_start_time: float = 0.0
+    
+    # Speculative execution state
+    speculative_task: asyncio.Task | None = None
+    speculative_text: str = ""
+    promotion_event: asyncio.Event = asyncio.Event() 
+    
     session_org_id = get_current_organisation_id()
     session_comp_id = get_current_company_id()
     session_agent_executor = await get_agent_executor(session_org_id, session_comp_id)
     logger.info("Agent session started: org_id=%s, company_id=%s, thread=%s", session_org_id, session_comp_id, thread_id[:8])
 
-    async def generate_ai_response(text: str):
+    async def generate_ai_response(text: str, speculative: bool = False):
         """Stream LLM response into the shared output queue, chunked by sentence."""
         nonlocal thread_id
+        # ... (rest of the logic updated above in other chunks)
+        ttfb_logged = False
         try:
             stream = session_agent_executor.astream(
                 {"messages": [HumanMessage(content=text)]},
@@ -85,23 +95,64 @@ async def agent_stream(
 
                     for char in chunk:
                         current_sentence += char
-                        if char in ['.', '!', '?', '।', '\n']:
+                        # Latency optimization: split on punctuation OR if first chunk is long enough
+                        # Commas are now used as soft splitters for the first few chunks to reduce TTFB (Time To First Byte)
+                        words = current_sentence.strip().split()
+                        is_first_chunk = current_sentence.count('.') + current_sentence.count('!') + current_sentence.count('?') == 0
+                        
+                        should_split = char in ['.', '!', '?', '।', '\n']
+                        # Latency optimization: split if we've reached word limit AND we are at a word boundary
+                        # REDUCED word limit from 5 to 2 for 1.5s latency target
+                        is_word_boundary = char in [' ', '\t', ',', '.', '!', '?', '।']
+                        if is_first_chunk and is_word_boundary and (char == ',' or len(words) >= 2):
+                            should_split = True
+                            
+                        if should_split:
                             sentence = current_sentence.strip()
                             if sentence:
-                                logger.info(f"Agent says: {sentence}")
-                                await output_queue.put(
-                                    AgentChunkEvent.create(sentence)
-                                )
+                                if not ttfb_logged:
+                                    ttfb = (time.monotonic() - ai_response_start_time) * 1000
+                                    logger.info(f"TTFB (Time to First Byte): {ttfb:.2f}ms")
+                                    ttfb_logged = True
+                                    
+                                event = AgentChunkEvent.create(sentence)
+                                
+                                # Speculative handling: if speculative, wait for promotion
+                                if speculative:
+                                    if not promotion_event.is_set():
+                                        logger.debug(f"Holding speculative chunk: {sentence}")
+                                        try:
+                                            # Wait for promotion or cancellation
+                                            await promotion_event.wait()
+                                        except asyncio.CancelledError:
+                                            raise
+                                            
+                                logger.info(f"Agent says (chunk): {sentence}")
+                                await output_queue.put(event)
                             current_sentence = ""
 
             final = current_sentence.strip()
             if final:
-                logger.info(f"Agent says (final): {final}")
-                await output_queue.put(AgentChunkEvent.create(final))
+                if "[END_CALL]" in final:
+                    final = final.replace("[END_CALL]", "").strip()
+                    if final:
+                        logger.info(f"Agent says (final): {final}")
+                        await output_queue.put(AgentChunkEvent.create(final))
+                    logger.info("Hangup marker [END_CALL] detected. Signaling hangup.")
+                    await output_queue.put(HangupEvent.create(reason="natural_end"))
+                else:
+                    logger.info(f"Agent says (final): {final}")
+                    await output_queue.put(AgentChunkEvent.create(final))
         except asyncio.CancelledError:
             logger.info("AI response cancelled (barge-in)")
         except Exception as e:
-            error_str = str(e)
+            # Check for specific quota/api errors
+            error_str = str(e).lower()
+            if any(term in error_str for term in ["quota", "rate limit", "429", "insufficient_quota"]):
+                logger.error(f"Quota/Rate Limit Error: {e}")
+                await output_queue.put(AgentChunkEvent.create("Maaf kijiyega, mere server mein thodi takneeki pareshani aa rahi hai. Aap thodi der baad phir se call kijiye. Namaste!"))
+                await output_queue.put(HangupEvent.create(reason="quota_exceeded"))
+                return
             if "tool_calls" in error_str and ("ToolMessage" in error_str or "not have response messages" in error_str or "400" in error_str or "invalid_request_error" in error_str):
                 logger.warning("Detected tool call state corruption. Attempting to fix state by removing dangling tool calls.")
                 try:
@@ -157,7 +208,7 @@ async def agent_stream(
 
     async def upstream_listener():
         """Consume STT events and drive the agent conversation."""
-        nonlocal current_ai_task, last_stt_text
+        nonlocal current_ai_task, last_stt_text, speculative_text, speculative_task, promotion_event
         consecutive_timeouts = 0
         try:
             event_iter = event_stream.__aiter__()
@@ -213,17 +264,67 @@ async def agent_stream(
                 # Pass through non-barge-in events (stt_chunk, stt_output)
                 await output_queue.put(event)
 
+                if event.type == "stt_interim":
+                    text = event.transcript.strip()
+                    if not text or len(text) < 10:
+                        continue
+                        
+                    # If this matches our current speculative work, do nothing
+                    if text == speculative_text:
+                        continue
+                        
+                    # If AI is already responding to a FINAL transcript, ignore interims
+                    if current_ai_task and not current_ai_task.done():
+                        continue
+                        
+                    # New or different interim -> Start speculative task
+                    logger.info("Starting speculative AI task for: %s", text)
+                    if speculative_task and not speculative_task.done():
+                        speculative_task.cancel()
+                    
+                    promotion_event.clear()
+                    speculative_text = text
+                    ai_response_start_time = time.monotonic()
+                    speculative_task = asyncio.create_task(generate_ai_response(text, speculative=True))
+                    continue
+
                 if event.type == "stt_output":
                     text = event.transcript.strip()
                     if not text:
                         continue
-                    # Avoid processing the exact same text twice in rapid succession
+                        
+                    # Noise filtering
+                    whitelist = ["जी", "हां", "ना", "ji", "yes", "no", "ok", "ओके"]
+                    if len(text) < 3 and text.lower() not in whitelist:
+                        logger.info("Ignoring short noise artifact: '%s'", text)
+                        continue
+                        
                     if text == last_stt_text:
                         logger.info("Ignoring duplicate STT text: %s", text)
                         continue
                     last_stt_text = text
-                    # New user utterance → start new AI response
-                    _start_ai_task(text)
+
+                    # CATCH & PROMOTE: If the finalized text matches our speculative work, promote it
+                    # We allow minor differences (case, punctuation) or if the final matches exactly what we speculated on.
+                    # Or even if the final is just the speculated text + more words, it's often close enough to keep.
+                    if speculative_task and not speculative_task.done() and (text.startswith(speculative_text) or speculative_text.startswith(text)):
+                        logger.info("Speculative match! Promoting AI task for: %s", text)
+                        promotion_event.set()
+                        current_ai_task = speculative_task
+                        speculative_task = None
+                        speculative_text = ""
+                    else:
+                        # No match or no speculation: Start fresh FINAL response
+                        logger.info("Starting fresh FINAL AI task for: %s", text)
+                        if speculative_task and not speculative_task.done():
+                            speculative_task.cancel()
+                        
+                        if current_ai_task and not current_ai_task.done():
+                            current_ai_task.cancel()
+                            
+                        ai_response_start_time = time.monotonic()
+                        current_ai_task = asyncio.create_task(generate_ai_response(text, speculative=False))
+                    continue
         finally:
             await output_queue.put(None)
 
