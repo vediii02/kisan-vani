@@ -5,7 +5,7 @@ from typing import AsyncIterator
 from uuid import uuid4
 
 from langchain_core.messages import HumanMessage
-from services.voice.events import VoiceAgentEvent, AgentChunkEvent, BargeInEvent, HangupEvent, STTInterimEvent
+from services.voice.events import VoiceAgentEvent, AgentChunkEvent, HangupEvent
 from services.voice.llm import get_agent_executor
 from services.voice.logger import setup_logger
 from services.voice.session_context import get_current_organisation_id, get_current_company_id, get_current_session_id
@@ -95,17 +95,13 @@ async def agent_stream(
 
                     for char in chunk:
                         current_sentence += char
-                        # Latency optimization: split on punctuation OR if first chunk is long enough
-                        # Commas are now used as soft splitters for the first few chunks to reduce TTFB (Time To First Byte)
-                        words = current_sentence.strip().split()
-                        is_first_chunk = current_sentence.count('.') + current_sentence.count('!') + current_sentence.count('?') == 0
                         
+                        # Detect if this is the first chunk ever sent for this AI response
+                        is_first_chunk_of_response = not ttfb_logged
+                        
+                        # Sentence boundaries (best for naturalness and voice quality)
+                        # Avoid aggressive sub-sentence splitting to prevent "voice breaking"
                         should_split = char in ['.', '!', '?', '।', '\n']
-                        # Latency optimization: split if we've reached word limit AND we are at a word boundary
-                        # REDUCED word limit from 5 to 2 for 1.5s latency target
-                        is_word_boundary = char in [' ', '\t', ',', '.', '!', '?', '।']
-                        if is_first_chunk and is_word_boundary and (char == ',' or len(words) >= 2):
-                            should_split = True
                             
                         if should_split:
                             sentence = current_sentence.strip()
@@ -150,7 +146,22 @@ async def agent_stream(
             error_str = str(e).lower()
             if any(term in error_str for term in ["quota", "rate limit", "429", "insufficient_quota"]):
                 logger.error(f"Quota/Rate Limit Error: {e}")
-                await output_queue.put(AgentChunkEvent.create("Maaf kijiyega, mere server mein thodi takneeki pareshani aa rahi hai. Aap thodi der baad phir se call kijiye. Namaste!"))
+                
+                # Localize the error message based on platform config
+                try:
+                    from services.config_service import get_platform_config
+                    config = await get_platform_config()
+                    lang = config.get("default_language", "hi")
+                except Exception:
+                    lang = "hi"
+                
+                error_msgs = {
+                    "hi": "माफ कीजियेगा, मेरे सर्वर में थोड़ी तकनीकी परेशानी आ रही है। आप थोड़ी देर बाद फिर से कॉल कीजिये। नमस्ते!",
+                    "en": "I'm sorry, I'm experiencing some technical difficulties with my server. Please call back in a little while. Namaste!",
+                    "pa": "ਮਾਫ ਕਰਨਾ, ਮੇਰੇ ਸਰਵਰ ਵਿੱਚ ਕੁਝ ਤਕਨੀਕੀ ਮੁਸ਼ਕਲਾਂ ਆ ਰਹੀਆਂ ਹਨ। ਕਿਰਪਾ ਕਰਕੇ ਕੁਝ ਸਮੇਂ ਬਾਅਦ ਦੁਬਾਰਾ ਕਾਲ ਕਰੋ। ਨਮਸਤੇ!",
+                    "mr": "क्षमस्व, माझ्या सर्व्हरमध्ये काही तांत्रिक अडचणी येत आहेत. कृपया थोड्या वेळाने पुन्हा कॉल करा. नमस्ते!"
+                }
+                await output_queue.put(AgentChunkEvent.create(error_msgs.get(lang, error_msgs["hi"])))
                 await output_queue.put(HangupEvent.create(reason="quota_exceeded"))
                 return
             if "tool_calls" in error_str and ("ToolMessage" in error_str or "not have response messages" in error_str or "400" in error_str or "invalid_request_error" in error_str):
