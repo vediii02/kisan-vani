@@ -5,7 +5,7 @@ import {
   Building2,
   Phone,
   Package,
-  TrendingUp,
+  Tag,
   PhoneCall,
   Shield,
   ArrowLeft,
@@ -16,10 +16,11 @@ import {
   Globe,
   Calendar,
   User,
-  Briefcase,
+  Briefcase,  
   Hash,
   Crown,
-  Store
+  Store,
+  Loader2
 } from 'lucide-react';
 import api from '../api/api';
 
@@ -32,6 +33,8 @@ const OrganisationDetailView = () => {
   const [products, setProducts] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [phoneNumbers, setPhoneNumbers] = useState([]);
+  const [callLogs, setCallLogs] = useState([]);
+  const [callsLoading, setCallsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -47,17 +50,19 @@ const OrganisationDetailView = () => {
       setOrganisation(org);
 
       // Fetch all data in parallel
-      const [brandsRes, productsRes, companiesRes, phonesRes] = await Promise.allSettled([
+      const [brandsRes, productsRes, companiesRes, phonesRes, callsRes] = await Promise.allSettled([
         api.get(`/organisations/${orgId}/brands`),
         api.get(`/superadmin/organisations/${orgId}/products`),
         api.get(`/admin/companies?organisation_id=${orgId}`),
         api.get(`/superadmin/organisations/${orgId}/phone-numbers`),
+        api.get(`/superadmin/calls?organisation_id=${orgId}`),
       ]);
 
       setBrands(brandsRes.status === 'fulfilled' ? brandsRes.value.data : []);
       setProducts(productsRes.status === 'fulfilled' ? productsRes.value.data : []);
       setCompanies(companiesRes.status === 'fulfilled' ? companiesRes.value.data || [] : []);
       setPhoneNumbers(phonesRes.status === 'fulfilled' ? phonesRes.value.data : []);
+      setCallLogs(callsRes.status === 'fulfilled' ? callsRes.value.data : []);
     } catch (error) {
       console.error('Error fetching organisation details:', error);
     } finally {
@@ -113,9 +118,10 @@ const OrganisationDetailView = () => {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Building2 },
     { id: 'companies', label: `Companies (${organisation.company_count || companies.length || 0})`, icon: Store },
-    { id: 'brands', label: `Brands (${organisation.brand_count || 0})`, icon: Package },
-    { id: 'products', label: `Products (${organisation.product_count || 0})`, icon: TrendingUp },
-    { id: 'phones', label: `Phone Numbers (${organisation.phone_count || 0})`, icon: Phone },
+    { id: 'brands', label: `Brands (${organisation.brand_count || 0})`, icon: Tag },
+    { id: 'products', label: `Products (${organisation.product_count || 0})`, icon: Package },
+    { id: 'phones', label: `Phone Numbers (${companies.reduce((acc, company) => acc + company.phone_count, 0) || 0})`, icon: Phone },
+    { id: 'calls', label: `Total Calls (${organisation.call_count || callLogs.length || 0})`, icon: PhoneCall },
   ];
 
   const DetailItem = ({ icon: Icon, label, value, color = 'text-gray-900' }) => (
@@ -183,9 +189,9 @@ const OrganisationDetailView = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-600 text-sm">Companies</p>
-              <p className="text-3xl font-bold text-orange-600">{organisation.company_count || companies.length || 0}</p>
+              <p className="text-3xl font-bold text-gray-600">{organisation.company_count || companies.length || 0}</p>
             </div>
-            <Store className="h-10 w-10 text-orange-500" />
+            <Store className="h-10 w-10 text-gray-500" />
           </div>
         </div>
 
@@ -205,7 +211,7 @@ const OrganisationDetailView = () => {
               <p className="text-gray-600 text-sm">Products</p>
               <p className="text-3xl font-bold text-green-600">{organisation.product_count || 0}</p>
             </div>
-            <TrendingUp className="h-10 w-10 text-green-500" />
+            <Tag className="h-10 w-10 text-green-500" />
           </div>
         </div>
 
@@ -455,7 +461,7 @@ const OrganisationDetailView = () => {
               <h3 className="text-lg font-bold mb-4">Products ({products.length}) - View Only</h3>
               {products.length === 0 ? (
                 <div className="text-center py-12">
-                  <TrendingUp className="h-16 w-16 text-gray-300 mx-auto mb-3" />
+                  <Tag className="h-16 w-16 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500 text-lg">No products registered</p>
                 </div>
               ) : (
@@ -475,7 +481,7 @@ const OrganisationDetailView = () => {
                         <tr key={product.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              <TrendingUp className="h-4 w-4 text-green-500" />
+                              <Tag className="h-4 w-4 text-green-500" />
                               <span className="font-medium">{product.name}</span>
                             </div>
                           </td>
@@ -501,40 +507,117 @@ const OrganisationDetailView = () => {
 
           {/* ==================== PHONE NUMBERS TAB ==================== */}
           {activeTab === 'phones' && (
+            <div className="space-y-8">
+
+              {/* Company Phone Numbers */}
+              <div>
+                <h3 className="text-lg font-bold mb-4">Company Phone Numbers ({companies.length})</h3>
+                {companies.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Store className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No companies under this organisation</p>
+                  </div>
+                ) : (
+                  <table className="min-w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Company Name</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Primary No.</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Secondary No.</th>
+                        <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {companies.map(company => (
+                        <tr key={company.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <Store className="h-5 w-5 text-orange-500" />
+                              <span className="font-medium">{company.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-gray-700">{company.phone || '—'}</td>
+                          <td className="px-4 py-3 font-mono text-gray-700">{company.secondary_phone || '—'}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`px-2 py-1 text-xs font-semibold rounded ${company.status === 'active' ? 'bg-green-100 text-green-800' :
+                              company.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                              {company.status?.charAt(0).toUpperCase() + company.status?.slice(1)}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ==================== TOTAL CALLS TAB ==================== */}
+          {activeTab === 'calls' && (
             <div>
-              <h3 className="text-lg font-bold mb-4">Phone Numbers ({phoneNumbers.length})</h3>
-              {phoneNumbers.length === 0 ? (
+              <h3 className="text-lg font-bold mb-4">Total Calls ({callLogs.length})</h3>
+              {callLogs.length === 0 ? (
                 <div className="text-center py-12">
-                  <Phone className="h-16 w-16 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 text-lg">No phone numbers configured</p>
+                  <PhoneCall className="h-16 w-16 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 text-lg">No calls recorded for this organisation</p>
                 </div>
               ) : (
-                <table className="min-w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Phone Number</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Channel</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Region</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {phoneNumbers.map(phone => (
-                      <tr key={phone.id}>
-                        <td className="px-4 py-3 font-mono">{phone.phone_number}</td>
-                        <td className="px-4 py-3 text-center text-gray-600">{phone.channel || '—'}</td>
-                        <td className="px-4 py-3 text-center text-gray-600">{phone.region || '—'}</td>
-                        <td className="px-4 py-3 text-center">
-                          {phone.status === 'active' ? (
-                            <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded">Active</span>
-                          ) : (
-                            <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs font-semibold rounded">{phone.status || 'Inactive'}</span>
-                          )}
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Farmer Name</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Farmer No</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Company Name</th>
+                        <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Duration</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Target Crop</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Recommended Product</th>
+                        <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Status</th>
+                        <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">Satisfied</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {callLogs.map(call => (
+                        <tr key={call.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium">{call.farmer_name || '—'}</td>
+                          <td className="px-4 py-3 text-gray-600 font-mono text-sm">{call.farmer_phone || '—'}</td>
+                          <td className="px-4 py-3 text-gray-600">{call.company_name || '—'}</td>
+                          <td className="px-4 py-3 text-center text-gray-600">
+                            {call.duration ? `${Math.floor(call.duration / 60)}m ${call.duration % 60}s` : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">{call.target_crop || '—'}</td>
+                          <td className="px-4 py-3 text-gray-600">
+                            {call.suggested_products && call.suggested_products.length > 0
+                              ? (Array.isArray(call.suggested_products)
+                                ? call.suggested_products.join(', ')
+                                : call.suggested_products)
+                              : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`px-2 py-1 text-xs font-semibold rounded ${call.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                              call.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
+                                call.status === 'FAILED' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                              }`}>
+                              {call.status || '—'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`px-2 py-1 text-xs font-semibold rounded ${call.satisfaction === 'Satisfied' ? 'bg-green-100 text-green-800' :
+                              call.satisfaction === 'Not Satisfied' ? 'bg-red-100 text-red-800' :
+                                'bg-yellow-100 text-yellow-800'
+                              }`}>
+                              {call.satisfaction || 'Pending'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           )}

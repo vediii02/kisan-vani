@@ -110,7 +110,7 @@ async def get_active_organisations(db: AsyncSession = Depends(get_db)):
 
 @router.post("/register", response_model=dict)
 async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
-    # Check if user exists
+    # Check if user exists (User table has unique constraints on username and email)
     result = await db.execute(select(User).where(
         (User.username == user.username) | (User.email == user.email)
     ))
@@ -122,6 +122,12 @@ async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
         else:
             raise HTTPException(status_code=400, detail="Email already registered")
     
+    # Extra check for organisation email if role is organisation
+    if user.role == "organisation" and user.organisation_name:
+        org_email_result = await db.execute(select(Organisation).where(Organisation.email == user.email))
+        if org_email_result.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="An organisation with this email already exists")
+
     # Create user
     new_user = User(
         username=user.username,

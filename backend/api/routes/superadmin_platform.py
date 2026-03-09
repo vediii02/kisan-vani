@@ -1724,7 +1724,7 @@ async def delete_user(user_id: int, request: Request, current_user: dict = Depen
     
     # Step 2: Delete the user
     await db.delete(user)
-    await db.flush()
+    await db.flush()  # Force the user deletion to the DB to prevent conflicts with subsequent cascade operations
     
     # Step 3: Delete the organisation (and its cascaded companies, brands, products)
     if org_id_to_delete:

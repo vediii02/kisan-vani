@@ -36,12 +36,33 @@ import SuperAdminSettings from '@/pages/SuperAdminSettings';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 
+import { Menu } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
 function AuthenticatedLayout({ children }) {
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
+
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <div className="flex-1 pl-64">
-        <main className="p-8 h-full bg-gray-50/30">{children}</main>
+    <div className="flex flex-col lg:flex-row min-h-screen">
+      {/* Mobile Top Header */}
+      <header className="lg:hidden flex items-center justify-between px-6 py-4 bg-primary text-primary-foreground sticky top-0 z-40 shadow-md">
+        <h1 className="text-xl font-bold tracking-tight">Kisan Vani AI</h1>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setSidebarOpen(true)}
+          className="text-primary-foreground hover:bg-primary-foreground/20"
+        >
+          <Menu className="h-6 w-6" />
+        </Button>
+      </header>
+
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      <div className="flex-1 min-w-0 flex flex-col">
+        <main className="p-4 md:p-8 flex-1 bg-gray-50/30">
+          {children}
+        </main>
       </div>
     </div>
   );
@@ -143,18 +164,7 @@ function App() {
             />
 
 
-            {/* Super Admin Platform Routes
-            <Route
-              path="/superadmin/platform"
-              element={
-                <ProtectedRoute requiredRole="superadmin">
-                  <AuthenticatedLayout>
-                    <SuperAdminPlatformDashboard />
-                  </AuthenticatedLayout>
-                </ProtectedRoute>
-              }
-            /> */}
-
+  
 
             {/* Organisation Role Routes */}
             <Route

@@ -105,7 +105,8 @@ export default function Register() {
       toast.success('Account created successfully! Please sign in.');
       navigate('/login');
     } else {
-      toast.error(getErrorMessage(result));
+      // Use the pre-formatted error message from result.error
+      toast.error(result.error || 'Registration failed');
     }
 
     setLoading(false);

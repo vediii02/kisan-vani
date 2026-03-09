@@ -206,12 +206,12 @@ const SuperAdminCallLogs = () => {
   };
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+    <div className="p-4 md:p-6 space-y-6 bg-gray-50 min-h-screen">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Phone className="h-8 w-8 text-primary" />
+          <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
+            <Phone className="h-6 w-6 md:h-8 md:w-8 text-primary" />
             Call Logs
           </h1>
           <Badge variant="secondary" className="mt-1 bg-purple-100 text-purple-700">{logs.length} Total Calls</Badge>
@@ -220,7 +220,7 @@ const SuperAdminCallLogs = () => {
         <button
           onClick={exportToCSV}
           disabled={filteredLogs.length === 0}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Download className="h-4 w-4" />
           Export CSV

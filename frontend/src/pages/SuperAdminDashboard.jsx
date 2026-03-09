@@ -16,7 +16,8 @@ import {
   Calendar,
   Eye,
   Loader2,
-  LayoutDashboard
+  LayoutDashboard,
+  Tag
 } from 'lucide-react';
 import api, { superAdminAPI } from '../api/api';
 
@@ -92,7 +93,7 @@ export default function SuperAdminDashboard() {
       title: 'Total Brands',
       value: kpis?.total_brands || 0,
       subtitle: `${kpis?.total_brands || 0} Brands`,
-      icon: Package,
+      icon: Tag,
       gradient: 'from-indigo-500 to-purple-700',
       action: () => navigate('/superadmin/brands')
     },

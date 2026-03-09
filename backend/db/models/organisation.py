@@ -42,17 +42,19 @@ class Organisation(Base):
     phone_numbers_rel = relationship(
         "OrganisationPhoneNumber",
         back_populates="organisation",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        passive_deletes=True
     )
     
     # Relationship to users - Deleting organisation unlinks users but keeps them
-    users = relationship("User", back_populates="organisation")
+    users = relationship("User", back_populates="organisation", passive_deletes=True)
 
     # Relationship to companies
-    companies = relationship("Company", back_populates="organisation", cascade="all, delete-orphan")
+    companies = relationship("Company", back_populates="organisation", cascade="all, delete-orphan", passive_deletes=True)
 
     # Relationship to brands
-    brands = relationship("Brand", back_populates="organisation", cascade="all, delete-orphan")
+    brands = relationship("Brand", back_populates="organisation", cascade="all, delete-orphan", passive_deletes=True)
 
     # Relationship to products
-    products = relationship("Product", back_populates="organisation", cascade="all, delete-orphan")
+    products = relationship("Product", back_populates="organisation", cascade="all, delete-orphan", passive_deletes=True)
+
