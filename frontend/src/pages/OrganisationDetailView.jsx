@@ -16,7 +16,7 @@ import {
   Globe,
   Calendar,
   User,
-  Briefcase,  
+  Briefcase,
   Hash,
   Crown,
   Store,
@@ -334,17 +334,17 @@ const OrganisationDetailView = () => {
               )}
 
               {/* Governance Notice */}
-              <div className="bg-slate-900 rounded-2xl p-6 shadow-xl relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500">
-                  <Shield className="h-24 w-24 text-white" />
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-500">
+                  <Shield className="h-24 w-24 text-gray-400" />
                 </div>
                 <div className="flex items-start gap-4 relative z-10">
-                  <div className="p-2 bg-indigo-500 rounded-lg shadow-lg">
-                    <Shield className="h-6 w-6 text-white" />
+                  <div className="p-2 bg-indigo-100 rounded-lg">
+                    <Shield className="h-6 w-6 text-indigo-600" />
                   </div>
                   <div>
-                    <h4 className="font-black text-white text-lg uppercase tracking-tight mb-2">Governance Mode Active</h4>
-                    <p className="text-slate-400 text-sm font-medium max-w-2xl leading-relaxed">
+                    <h4 className="font-bold text-gray-800 text-lg tracking-tight mb-2">Governance Mode Active</h4>
+                    <p className="text-gray-500 text-sm font-medium max-w-2xl leading-relaxed">
                       As Super Admin, you have full read-only visibility with critical safety controls.
                       You can manage brands and phone numbers, or inactivate the entire organisation if needed for compliance.
                     </p>

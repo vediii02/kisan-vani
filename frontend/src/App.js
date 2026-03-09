@@ -43,7 +43,7 @@ function AuthenticatedLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen">
+    <div className="flex flex-col lg:flex-row h-screen overflow-hidden">
       {/* Mobile Top Header */}
       <header className="lg:hidden flex items-center justify-between px-6 py-4 bg-primary text-primary-foreground sticky top-0 z-40 shadow-md">
         <h1 className="text-xl font-bold tracking-tight">Kisan Vani AI</h1>
@@ -59,7 +59,7 @@ function AuthenticatedLayout({ children }) {
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 flex flex-col overflow-y-auto">
         <main className="p-4 md:p-8 flex-1 bg-gray-50/30">
           {children}
         </main>
@@ -164,7 +164,7 @@ function App() {
             />
 
 
-  
+
 
             {/* Organisation Role Routes */}
             <Route
